@@ -1,0 +1,16 @@
+{
+  "name": "@investreal/engine",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.json",
+    "report": "vite-node scripts/reference-report.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.8",
+    "vite-node": "^2.1.8"
+  }
+}
