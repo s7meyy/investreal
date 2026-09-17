@@ -94,6 +94,7 @@ export function bandOf(score: number): RiskBand {
 export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
   const items: ScoredRisk[] = [];
   const blockers: string[] = [];
+  const unverifiedBlockers: string[] = [];
   let weighted = 0;
 
   for (const def of RISKS) {
@@ -110,7 +111,9 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
         mitigation: def.mitigation,
       });
     }
-    if (def.blocker && exp > 0) blockers.push(def.title);
+    // «لا» بند قاتل مؤكّد يُسقط الفرصة؛ «لا أعرف» واجبُ تحقّق يمنع الترقية.
+    if (def.blocker && answer === 'no') blockers.push(def.title);
+    else if (def.blocker && answer === 'unknown') unverifiedBlockers.push(def.title);
   }
 
   // مخاطر محسوبة من الأرقام لا من الاستبيان.
@@ -142,5 +145,5 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
 
   const score = Math.min(100, Math.round((weighted / TOTAL_WEIGHT) * 100 + numeric));
   items.sort((a, b) => b.severity - a.severity);
-  return { score, band: bandOf(score), items, blockers };
+  return { score, band: bandOf(score), items, blockers, unverifiedBlockers };
 }

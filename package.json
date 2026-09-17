@@ -1,9 +1,15 @@
 {
   "name": "investreal",
   "private": true,
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "test": "npm run test --workspace @investreal/engine",
     "build": "npm run build --workspace @investreal/engine"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0"
   }
 }

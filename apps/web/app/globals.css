@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+
+body {
+  background: theme('colors.paper');
+  color: theme('colors.ink');
+}
+
+/* الأرقام العربية-الغربية بفاصل آلاف واضح داخل النص العربي. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+  direction: ltr;
+  display: inline-block;
+}
+
+/* حقول الإدخال الرقمية تبقى LTR حتى لا تتشتّت الأرقام في سياق RTL. */
+input[type='number'] { direction: ltr; text-align: right; }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; }
+}

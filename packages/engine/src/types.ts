@@ -211,7 +211,10 @@ export interface RiskResult {
   score: number;
   band: RiskBand;
   items: ScoredRisk[];
+  /** بنود قاتلة مؤكّدة (أُجيب عنها بـ«لا») — تُسقط الفرصة */
   blockers: string[];
+  /** بنود قاتلة لم يتحقّق منها بعد — تمنع الترقية لا أكثر */
+  unverifiedBlockers: string[];
 }
 
 export interface Ceiling {

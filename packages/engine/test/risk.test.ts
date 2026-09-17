@@ -20,7 +20,27 @@ describe('درجة المخاطرة', () => {
     expect(r.verdict.grade).toBe('rejected');
   });
 
-  it('البند القاتل يُسقط الفرصة مهما كان العائد مرتفعاً', () => {
+  it('«لا أعرف» في بند قاتل لا يرفض الفرصة بل يمنع ترقيتها', () => {
+    const o = referenceCase();
+    o.deal.contractRentAnnual = 6000; // عائد يستحق «ممتازة» لولا التحفّظ
+    o.legal.subleaseExplicit = 'unknown';
+    const r = analyze(o);
+    expect(r.risk.blockers).toHaveLength(0);
+    expect(r.risk.unverifiedBlockers).toContain('حق التأجير من الباطن');
+    expect(r.verdict.grade).toBe('marginal');
+    expect(r.verdict.reason).toContain('لم يُحسم بعد');
+  });
+
+  it('التحقّق من البند يرفع السقف فوراً', () => {
+    const o = referenceCase();
+    o.deal.contractRentAnnual = 6000;
+    o.legal.subleaseExplicit = 'unknown';
+    expect(analyze(o).verdict.grade).toBe('marginal');
+    o.legal.subleaseExplicit = 'yes';
+    expect(analyze(o).verdict.grade).toBe('excellent');
+  });
+
+  it('البند القاتل المؤكّد يُسقط الفرصة مهما كان العائد مرتفعاً', () => {
     const o = referenceCase();
     o.deal.contractRentAnnual = 3000; // عائد خيالي
     o.legal.ownershipClear = 'no';

@@ -29,10 +29,6 @@ export function computeVerdict(o: Opportunity, metrics: Metrics, risk: RiskResul
   if (metrics.irr === null) {
     overrides.push('تعذّر حساب عائد داخلي موثوق لهذه التدفقات');
   }
-  if (metrics.npv < 0 && metrics.irr !== null) {
-    // ليس تجاوزاً بذاته، لكنه يُثبّت الحكم في الصف السالب أدناه.
-  }
-
   if (overrides.length > 0) {
     return {
       grade: 'rejected',
@@ -44,7 +40,14 @@ export function computeVerdict(o: Opportunity, metrics: Metrics, risk: RiskResul
 
   const excess = (metrics.irr ?? 0) - o.finance.discountRate;
   const row = excess >= 0.10 ? 'high' : excess >= 0.05 ? 'mid' : excess >= 0 ? 'low' : 'negative';
-  const grade = MATRIX[row]![BAND_INDEX[risk.band]]!;
+  let grade = MATRIX[row]![BAND_INDEX[risk.band]]!;
+
+  // بند قاتل لم يُتحقَّق منه لا يُسقط الفرصة — الفرصة قد تكون سليمة —
+  // لكنه يمنع أي حكم يوحي بالاطمئنان قبل أن يُحسم.
+  const CAP_ORDER: Grade[] = ['rejected', 'weak', 'marginal', 'good', 'very_good', 'excellent'];
+  if (risk.unverifiedBlockers.length > 0 && CAP_ORDER.indexOf(grade) > CAP_ORDER.indexOf('marginal')) {
+    grade = 'marginal';
+  }
 
   const excessPts = (excess * 100).toFixed(1);
   const reason =
@@ -54,5 +57,10 @@ export function computeVerdict(o: Opportunity, metrics: Metrics, risk: RiskResul
         ? `عائدك يتجاوز البديل بـ${excessPts} نقطة فقط — ربح حقيقي لكنه لا يُعوّضك عن تجميد ${o.deal.termYears} سنوات ولا عن المخاطر. السقف التفاوضي هو ما يحوّلها إلى فرصة.`
         : `عائدك يتجاوز البديل بـ${excessPts} نقطة، ودرجة مخاطرتك ${risk.score}/١٠٠ — الفارق يُعوّض المخاطرة والتجميد.`;
 
-  return { grade, label: LABELS[grade], reason, overrides };
+  const pending =
+    risk.unverifiedBlockers.length > 0
+      ? ` لم يُحسم بعد: ${risk.unverifiedBlockers.join('، ')} — والحكم لا يرتفع فوق «حدّية» قبل التحقّق منها.`
+      : '';
+
+  return { grade, label: LABELS[grade], reason: reason + pending, overrides };
 }
