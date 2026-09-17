@@ -30,6 +30,7 @@ export function referenceCase(overrides: Partial<Opportunity> = {}): Opportunity
       renewalOption: 'no', purchaseOption: 'no', insured: 'yes', inspected: 'yes',
       marketRentVerified: 'yes',
     },
+    syndication: { shares: 1, operatorShare: 0, capitalFirst: true },
     ...overrides,
   };
 }

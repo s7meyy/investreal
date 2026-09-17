@@ -3,8 +3,9 @@
 export type Calendar = 'gregorian' | 'hijri';
 
 export type PropertyType =
-  | 'apartment' | 'floor' | 'villa' | 'building'
-  | 'rest_house' | 'shop' | 'office' | 'warehouse' | 'land';
+  | 'apartment' | 'floor' | 'villa' | 'duplex' | 'penthouse' | 'building'
+  | 'room' | 'driver_room' | 'rest_house'
+  | 'shop' | 'showroom' | 'office' | 'warehouse' | 'workshop' | 'parking' | 'land';
 
 /** نسبة مئوية كسرية: 0.05 = ٥٪ */
 export type Rate = number;
@@ -128,6 +129,22 @@ export interface LegalAnswers {
   marketRentVerified: Answer;
 }
 
+/**
+ * تجزئة الفرصة على مستثمرين، وهيكل المشغّل.
+ *
+ * كثير من هذه الفرص لا يدخلها مستثمر واحد: تُقسّم على أسهم، ويأخذ من
+ * يُدير التشغيل حصةً من صافي الدخل مقابل إدارته. هذا يغيّر عائد المستثمر
+ * جذرياً عن عائد الفرصة، والخلط بينهما هو أشيع خطأ في هذه الصفقات.
+ */
+export interface Syndication {
+  /** عدد الأسهم التي تُقسّم عليها الفرصة (١ = مستثمر واحد) */
+  shares: number;
+  /** حصة المشغّل من صافي الدخل التشغيلي (٠ = لا مشغّل) */
+  operatorShare: Rate;
+  /** هل يسترد المستثمرون رأس مالهم قبل أن يأخذ المشغّل حصته */
+  capitalFirst: boolean;
+}
+
 export interface Property {
   type: PropertyType;
   city: string;
@@ -145,6 +162,18 @@ export interface Opportunity {
   costs: CostAssumptions;
   finance: FinanceAssumptions;
   legal: LegalAnswers;
+  syndication: Syndication;
+  /** بيانات التقرير — لا تدخل في أي حساب */
+  report?: ReportMeta;
+}
+
+export interface ReportMeta {
+  /** عنوان الصفحة الأولى من التقرير */
+  title: string;
+  /** اسم مُعدّ التقرير */
+  preparedBy: string;
+  /** ملاحظة تظهر على الغلاف */
+  note?: string;
 }
 
 export interface PeriodRow {
@@ -194,6 +223,60 @@ export interface Metrics {
   realIrr: number | null;
   /** هل IRR موثوق (إشارة واحدة فقط في التدفقات) */
   irrReliable: boolean;
+  /** التكلفة التعاقدية الشهرية — رقم يفهمه المستثمر بالحدس */
+  monthlyContractCost: number;
+  /**
+   * مكرر الأرباح: رأس المال ÷ متوسط التوزيع السنوي.
+   * «كم سنة من التوزيعات تساوي ما دفعته؟» — أوضح مقياس لغير المتخصّص.
+   */
+  earningsMultiple: number | null;
+  /** متوسط التوزيع السنوي للمستثمرين بعد حصة المشغّل */
+  avgAnnualDistribution: number;
+  /** نسبة العائد البسيط للفترة كلها */
+  totalReturnRate: number;
+  /** نسبة العائد البسيط السنوي (الإجمالي ÷ المدة) */
+  simpleAnnualReturn: number;
+  /** العائد النقدي السنوي = التوزيع السنوي ÷ رأس المال */
+  cashOnCash: number;
+}
+
+/** توزيع الفرصة على الأسهم والمشغّل. */
+export interface SyndicationResult {
+  shares: number;
+  /** ما يدفعه صاحب السهم الواحد */
+  capitalPerShare: number;
+  /** صافي الربح الكلي بعد حصة المشغّل */
+  investorsTotalNet: number;
+  /** ما يأخذه المشغّل طوال المدة */
+  operatorTotalNet: number;
+  /** التوزيع السنوي للسهم الواحد (متوسط) */
+  annualPerShare: number;
+  /** إجمالي ما يقبضه السهم الواحد طوال المدة */
+  totalPerShare: number;
+  /** نسبة العائد الإجمالي للسهم */
+  shareTotalReturn: number;
+  /** نسبة العائد السنوي البسيط للسهم (صافي الربح ÷ رأس المال ÷ المدة) */
+  shareAnnualReturn: number;
+  /**
+   * العائد النقدي السنوي للسهم = التوزيع السنوي ÷ رأس مال السهم.
+   * هذا ما يسأل عنه المستثمر فعلاً: «كم يدخل جيبي كل سنة؟»
+   */
+  shareCashYield: number;
+  /** العائد الداخلي للمستثمر بعد حصة المشغّل */
+  investorIrr: number | null;
+  /** مكرر الأرباح للمستثمرين */
+  investorEarningsMultiple: number | null;
+}
+
+/** أثر إعادة استثمار الأرباح بدل استهلاكها. */
+export interface ReinvestmentRow {
+  year: number;
+  /** رأس المال في بداية السنة */
+  opening: number;
+  /** العائد المحقّق في السنة */
+  gain: number;
+  /** رأس المال في نهاية السنة */
+  closing: number;
 }
 
 export type RiskBand = 'low' | 'medium' | 'high' | 'critical';
@@ -266,4 +349,6 @@ export interface AnalysisResult {
   recommendations: Recommendation[];
   verdict: Verdict;
   warnings: string[];
+  syndication: SyndicationResult;
+  reinvestment: ReinvestmentRow[];
 }

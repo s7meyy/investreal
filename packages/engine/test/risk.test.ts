@@ -9,7 +9,24 @@ describe('درجة المخاطرة', () => {
     o.legal = { ...UNKNOWN_LEGAL };
     const unknown = analyze(o).risk;
     expect(unknown.score).toBeGreaterThan(analyze(referenceCase()).risk.score);
-    expect(unknown.band === 'high' || unknown.band === 'critical').toBe(true);
+    expect(unknown.band).toBe('high');
+  });
+
+  it('الجهل مخاطرة مرتفعة، أما «لا» على كل شيء فمخاطرة حرجة', () => {
+    const unknownCase = referenceCase();
+    unknownCase.legal = { ...UNKNOWN_LEGAL };
+
+    const noCase = referenceCase();
+    noCase.legal = Object.fromEntries(
+      Object.keys(UNKNOWN_LEGAL).map((k) => [k, 'no']),
+    ) as typeof noCase.legal;
+
+    const unknownRisk = analyze(unknownCase).risk;
+    const noRisk = analyze(noCase).risk;
+    expect(unknownRisk.score).toBeLessThan(noRisk.score);
+    expect(noRisk.band).toBe('critical');
+    // مَن لم يُجب شيئاً بعد لا تُرفض فرصته لمجرّد جهله بها.
+    expect(analyze(unknownCase).verdict.grade).not.toBe('rejected');
   });
 
   it('غياب حق التأجير من الباطن بند قاتل', () => {
@@ -59,6 +76,23 @@ describe('درجة المخاطرة', () => {
 });
 
 describe('الحكم النهائي', () => {
+  it('الرفض بسبب المخاطرة يُفسَّر بالمخاطرة لا بالعائد', () => {
+    const o = referenceCase();
+    o.deal.contractRentAnnual = 6000; // عائد مرتفع
+    o.legal = Object.fromEntries(
+      // البنود القاتلة لم يُتحقَّق منها (فلا تُفعّل مسار التجاوز)، وكل ما عداها
+      // سيّئ. الرفض هنا يأتي من تراكم المخاطر، فيجب أن يُفسَّر بذلك لا بالعائد.
+      Object.keys(UNKNOWN_LEGAL).map((k) => [
+        k,
+        ['subleaseExplicit', 'ownershipClear', 'notWaqf'].includes(k) ? 'unknown' : 'no',
+      ]),
+    ) as typeof o.legal;
+    const v = analyze(o).verdict;
+    expect(v.grade).toBe('rejected');
+    expect(v.reason).toContain('حرجة');
+    expect(v.reason).toContain('أثقل ما عليك');
+  });
+
   it('عائد دون تكلفة الفرصة يعطي حكماً ضعيفاً لا جيداً', () => {
     const o = referenceCase();
     o.finance.discountRate = 0.25;

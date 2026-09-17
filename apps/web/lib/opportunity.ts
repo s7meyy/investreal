@@ -23,6 +23,12 @@ export interface QuickForm {
   maintenance: number;
   management: number;
   restoration: number;
+  // تجزئة الفرصة وهيكل المشغّل
+  shares: number;
+  operatorShare: number;
+  // بيانات التقرير — لا تدخل في أي حساب
+  reportTitle: string;
+  preparedBy: string;
 }
 
 export function defaultForm(): QuickForm {
@@ -47,6 +53,10 @@ export function defaultForm(): QuickForm {
     maintenance: costs.maintenance,
     management: costs.management,
     restoration: costs.restoration,
+    shares: 1,
+    operatorShare: 0,
+    reportTitle: 'دراسة جدوى فرصة استثمارية عقارية',
+    preparedBy: '',
   };
 }
 
@@ -111,5 +121,14 @@ export function toOpportunity(form: QuickForm, legal: LegalAnswers = UNKNOWN_LEG
     },
     finance: { ...finance, discountRate: form.discountRate },
     legal,
+    syndication: {
+      shares: Math.max(1, Math.round(form.shares)),
+      operatorShare: form.operatorShare,
+      capitalFirst: true,
+    },
+    report: {
+      title: form.reportTitle.trim() || 'دراسة جدوى فرصة استثمارية عقارية',
+      preparedBy: form.preparedBy.trim(),
+    },
   };
 }

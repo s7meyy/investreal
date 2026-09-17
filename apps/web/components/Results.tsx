@@ -1,5 +1,6 @@
 'use client';
-import type { AnalysisResult, Grade } from '@investreal/engine';
+import type { AnalysisResult, Grade, Opportunity } from '@investreal/engine';
+import { ReportCover } from './ReportCover';
 import { Card, Metric } from './ui';
 import { CashflowChart } from './CashflowChart';
 import { pct, riyal, years } from '@/lib/format';
@@ -15,13 +16,19 @@ const GRADE_STYLE: Record<Grade, { bg: string; text: string; ring: string }> = {
 
 const RISK_LABEL = { low: 'منخفضة', medium: 'متوسطة', high: 'مرتفعة', critical: 'حرجة' } as const;
 
-export function Results({ result, hurdle }: { result: AnalysisResult; hurdle: number }) {
-  const { metrics: m, verdict, risk } = result;
+export function Results({ result, hurdle, opportunity }: {
+  result: AnalysisResult; hurdle: number; opportunity: Opportunity;
+}) {
+  const { metrics: m, verdict, risk, syndication: syn } = result;
+  const hasOperator = opportunity.syndication.operatorShare > 0;
+  const isSplit = syn.shares > 1;
   const style = GRADE_STYLE[verdict.grade];
   const excess = m.irr === null ? null : m.irr - hurdle;
 
   return (
     <div className="space-y-4">
+      <ReportCover opportunity={opportunity} result={result} />
+
       {/* البطاقة التنفيذية: الحكم وسببه قبل أي تفصيل */}
       <div className={`rounded-2xl ${style.bg} p-5 ring-1 ${style.ring}`}>
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
@@ -70,6 +77,18 @@ export function Results({ result, hurdle }: { result: AnalysisResult; hurdle: nu
             tone={m.breakevenOccupancy !== null && m.breakevenOccupancy > 0.75 ? 'bad' : 'neutral'}
           />
           <Metric label="خصم الصفقة عن السوق" value={pct(m.discountToMarket, 0)} />
+          <Metric
+            label="مكرر الأرباح"
+            value={m.earningsMultiple === null ? '—' : `${m.earningsMultiple.toFixed(1)}×`}
+            note="كم سنة من التوزيعات تساوي ما دفعته"
+          />
+          <Metric label="التكلفة الشهرية" value={riyal(m.monthlyContractCost)} note="ما تدفعه للمالك شهرياً" />
+          <Metric label="التوزيع السنوي المتوقع" value={riyal(m.avgAnnualDistribution)} />
+          <Metric
+            label="العائد النقدي السنوي"
+            value={pct(m.cashOnCash)}
+            note="التوزيع السنوي ÷ رأس المال"
+          />
         </div>
         {!m.irrReliable && m.mirr !== null && (
           <p className="mt-3 rounded-xl bg-paper p-3 text-[12px] leading-relaxed text-ink/60">
@@ -98,6 +117,44 @@ export function Results({ result, hurdle }: { result: AnalysisResult; hurdle: nu
           ))}
         </div>
       </Card>
+
+      {(isSplit || hasOperator) && (
+        <Card
+          title="تجزئة الفرصة وحصة المشغّل"
+          hint="عائد الفرصة ليس عائد المستثمر: ما يأخذه المشغّل يخرج من جيبك أنت."
+        >
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Metric label="عدد الأسهم" value={`${syn.shares}`} />
+            <Metric label="قيمة السهم الواحد" value={riyal(syn.capitalPerShare)} />
+            <Metric label="التوزيع السنوي للسهم" value={riyal(syn.annualPerShare)} />
+            <Metric label="إجمالي عائد السهم" value={riyal(syn.totalPerShare)} tone={syn.totalPerShare > 0 ? 'good' : 'bad'} />
+            <Metric
+              label="العائد النقدي السنوي للسهم"
+              value={pct(syn.shareCashYield)}
+              note="ما يدخل جيب صاحب السهم كل سنة"
+            />
+            <Metric label="صافي عائد السهم للفترة" value={pct(syn.shareTotalReturn, 0)} />
+            <Metric
+              label="العائد الداخلي للمستثمر"
+              value={pct(syn.investorIrr)}
+              tone={hasOperator ? 'bad' : 'neutral'}
+              note={hasOperator ? `عائد الفرصة ${pct(m.irr)} قبل حصة المشغّل` : undefined}
+            />
+            <Metric
+              label="ما يأخذه المشغّل"
+              value={riyal(syn.operatorTotalNet)}
+              note={hasOperator ? `${pct(opportunity.syndication.operatorShare, 0)} من صافي الدخل` : 'لا يوجد مشغّل'}
+            />
+          </div>
+          {hasOperator && (
+            <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-900/85">
+              المشغّل يأخذ حصته من الفائض التشغيلي الموجب فقط — لا يشارك في رأس المال
+              ولا في الخسارة. هذا هو العُرف، وهو في غير صالحك: أنت تتحمّل كل المخاطرة
+              ويشاركك في الربح وحده. فاوض على ربط حصته بتجاوز عائد أدنى مضمون لك أولاً.
+            </p>
+          )}
+        </Card>
+      )}
 
       <Card
         title="السقف التفاوضي"
@@ -200,6 +257,41 @@ export function Results({ result, hurdle }: { result: AnalysisResult; hurdle: nu
           })}
         </ul>
       </Card>
+
+      {result.reinvestment.length > 0 && (
+        <Card
+          title="ماذا لو أعدتَ استثمار الأرباح؟"
+          hint={`لو كرّرتَ فرصة بعائد ${pct(m.irr)} وأعدتَ استثمار كل ريال بدل استهلاكه.`}
+        >
+          <div className="-mx-1 overflow-x-auto px-1">
+            <table className="w-full text-[13px]">
+              <thead>
+                <tr className="border-b border-black/10 text-right text-[12px] text-ink/55">
+                  <th className="py-2 font-medium">السنة</th>
+                  <th className="py-2 font-medium">رأس المال</th>
+                  <th className="py-2 font-medium">العائد</th>
+                  <th className="py-2 font-medium">الإجمالي</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.reinvestment.map((r) => (
+                  <tr key={r.year} className="border-b border-black/5 last:border-0">
+                    <td className="py-2 num">{r.year}</td>
+                    <td className="py-2 num text-ink/70">{Math.round(r.opening).toLocaleString('en-US')}</td>
+                    <td className="py-2 num text-ok">{Math.round(r.gain).toLocaleString('en-US')}</td>
+                    <td className="py-2 num font-semibold">{Math.round(r.closing).toLocaleString('en-US')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 rounded-xl bg-paper p-3 text-[12px] leading-relaxed text-ink/60">
+            هذا الجدول ليس وعداً: هو يفترض أنك تجد فرصة بنفس العائد كل مرة، وأن لا شيء
+            يتعثّر. قيمته أنه يُظهر لماذا فارق نقطتين في العائد يصنع فرقاً هائلاً بعد
+            عشر سنوات — وهذا وحده يُبرّر التفاوض على السعر.
+          </p>
+        </Card>
+      )}
 
       <Card title="جدول التدفقات النقدية">
         <div className="-mx-1 overflow-x-auto px-1">

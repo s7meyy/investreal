@@ -20,7 +20,50 @@ body {
 /* حقول الإدخال الرقمية تبقى LTR حتى لا تتشتّت الأرقام في سياق RTL. */
 input[type='number'] { direction: ltr; text-align: right; }
 
+/* ===== الطباعة والتصدير إلى PDF =====
+   التصدير يمرّ بمحرّك الطباعة في المتصفح لا بمكتبة رسم: هذا وحده ما يضمن
+   تشكيل الحروف العربية واتجاه RTL بشكل صحيح في الملف الناتج. */
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}
+
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff; }
+
+  html, body {
+    background: #fff !important;
+    font-size: 11pt;
+  }
+
+  /* الغلاف: صفحة كاملة مستقلة.
+     الارتفاع يُوضع على الحاوية الداخلية لا على القسم، لأن `h-full`
+     لا يرث من `min-height` فيبقى المحتوى متكوّماً في الأعلى. */
+  .report-cover {
+    display: block !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .report-cover > div {
+    min-height: 245mm;
+  }
+
+  /* كل بطاقة وحدة لا تُقسَّم بين صفحتين */
+  section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border-color: #0000001f !important;
+  }
+
+  /* الجداول الطويلة تُقسَّم، لكن الصفوف لا تُقصّ */
+  table { break-inside: auto; }
+  tr, h2, h3 { break-inside: avoid; page-break-inside: avoid; }
+  thead { display: table-header-group; }
+
+  /* لا تمرير أفقي في الورق */
+  .overflow-x-auto { overflow: visible !important; }
+
+  /* الرسوم البيانية تحتفظ بألوانها */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

@@ -20,12 +20,13 @@ export default function Page() {
     setForm((f) => ({ ...f, [key]: v }));
 
   // التحليل يُعاد حسابه مع كل تغيير — النتيجة تتحدّث أثناء الكتابة.
-  const result = useMemo(() => analyze(toOpportunity(form, legal)), [form, legal]);
+  const opportunity = useMemo(() => toOpportunity(form, legal), [form, legal]);
+  const result = useMemo(() => analyze(opportunity), [opportunity]);
   const profile = PROPERTY_PROFILES[form.propertyType];
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
-      <header className="mb-8">
+      <header className="mb-8 no-print">
         <h1 className="text-2xl font-bold sm:text-3xl">دراسة جدوى الفرص الإيجارية طويلة المدى</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-ink/65">
           تستأجر عقاراً لسنوات بدفعة مقدّمة وسعر أقل من السوق، ثم تُعيد تأجيره وتربح الفرق.
@@ -36,7 +37,7 @@ export default function Page() {
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">
         {/* عمود الإدخال */}
-        <div className="min-w-0 space-y-4 lg:sticky lg:top-6">
+        <div className="no-print min-w-0 space-y-4 lg:sticky lg:top-6">
           <Card title="الفرصة" hint={profile.note}>
             <div className="grid gap-3">
               <SelectField
@@ -127,6 +128,57 @@ export default function Page() {
           </Card>
 
           <Card
+            title="تجزئة الفرصة"
+            hint="لو دخلتَ الفرصة مع شركاء، أو أدارها مشغّل مقابل حصة."
+          >
+            <div className="grid gap-3">
+              <NumberField
+                label="عدد الأسهم"
+                value={form.shares}
+                onChange={(v) => set('shares', Math.max(1, Math.round(v)))}
+                suffix="سهم"
+                hint="١ يعني مستثمراً واحداً. التجزئة لا تغيّر العائد، بل حجم التذكرة."
+              />
+              <PercentField
+                label="حصة المشغّل من صافي الدخل"
+                value={form.operatorShare}
+                onChange={(v) => set('operatorShare', Math.min(0.9, Math.max(0, v)))}
+                hint="ما يأخذه من يُدير التشغيل. صفر إن كنتَ تُدير بنفسك."
+              />
+            </div>
+          </Card>
+
+          <Card
+            title="بيانات التقرير"
+            hint="تظهر على غلاف الملف المُصدَّر، ولا تدخل في أي حساب."
+          >
+            <div className="grid gap-3">
+              <TextField
+                label="عنوان الصفحة الأولى"
+                value={form.reportTitle}
+                onChange={(v) => set('reportTitle', v)}
+                placeholder="دراسة جدوى فرصة استثمارية عقارية"
+              />
+              <TextField
+                label="التقرير من إعداد"
+                value={form.preparedBy}
+                onChange={(v) => set('preparedBy', v)}
+                placeholder="اكتب اسمك أو اسم جهتك"
+              />
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="mt-1 w-full rounded-xl bg-brand py-3 text-[15px] font-semibold text-white transition hover:bg-brand-dark"
+              >
+                تحميل التقرير PDF
+              </button>
+              <p className="text-[12px] leading-relaxed text-ink/45">
+                يفتح نافذة الطباعة — اختر «حفظ بصيغة PDF» وجهةً للحفظ.
+              </p>
+            </div>
+          </Card>
+
+          <Card
             title="فحص المخاطر"
             hint="كل سؤال تتركه «لا أعرف» يُحسب كخطر مرتفع — الجهل ليس أماناً."
           >
@@ -135,7 +187,7 @@ export default function Page() {
         </div>
 
         {/* عمود النتائج */}
-        <Results result={result} hurdle={form.discountRate} />
+        <Results result={result} hurdle={form.discountRate} opportunity={opportunity} />
       </div>
     </main>
   );

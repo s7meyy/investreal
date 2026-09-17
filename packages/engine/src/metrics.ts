@@ -168,6 +168,11 @@ export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics
 
   const realIrr = rawIrr === null ? null : (1 + rawIrr) / (1 + o.finance.inflation) - 1;
 
+  // التوزيعات هي الفائض التشغيلي الموجب — رأس المال المسترد ليس ربحاً.
+  const distributions = rows.reduce((s, r) => s + Math.max(0, r.net), 0);
+  const avgAnnualDistribution = o.deal.termYears > 0 ? distributions / o.deal.termYears : 0;
+  const totalReturnRate = invested > 0 ? totalNet / invested : 0;
+
   return {
     capitalInvested: invested,
     totalNet,
@@ -187,5 +192,11 @@ export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics
     liquidityLockRatio: o.finance.totalLiquidity ? invested / o.finance.totalLiquidity : null,
     realIrr,
     irrReliable,
+    monthlyContractCost: contractAnnual / 12,
+    earningsMultiple: avgAnnualDistribution > 0 ? invested / avgAnnualDistribution : null,
+    avgAnnualDistribution,
+    totalReturnRate,
+    simpleAnnualReturn: o.deal.termYears > 0 ? totalReturnRate / o.deal.termYears : 0,
+    cashOnCash: invested > 0 ? avgAnnualDistribution / invested : 0,
   };
 }

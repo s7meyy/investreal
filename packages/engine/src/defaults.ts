@@ -21,6 +21,13 @@ export interface PropertyProfile {
 
 export const PROPERTY_PROFILES: Record<PropertyType, PropertyProfile> = {
   apartment: { label: 'شقة', maintenance: 0.05, management: 0.05, marketing: 0.02, capexReserve: 0.02, occupancy: 0.92, firstYearOccupancy: 0.85, badDebt: 0.02, fitoutOfAnnualRent: 0.65, note: 'الأكثر سيولة في التأجير، ومخاطرها التشغيلية محدودة.' },
+  duplex: { label: 'دبلكس', maintenance: 0.06, management: 0.04, marketing: 0.03, capexReserve: 0.03, occupancy: 0.88, firstYearOccupancy: 0.78, badDebt: 0.02, fitoutOfAnnualRent: 0.50, note: 'قريب من الفلة في الطلب والتكلفة، وأسهل في التأجير منها.' },
+  penthouse: { label: 'بينت هاوس', maintenance: 0.05, management: 0.05, marketing: 0.05, capexReserve: 0.03, occupancy: 0.80, firstYearOccupancy: 0.60, badDebt: 0.02, fitoutOfAnnualRent: 0.90, note: 'شريحة ضيّقة جداً: إيجار مرتفع لكن العثور على المستأجر يطول.' },
+  room: { label: 'غرفة', maintenance: 0.04, management: 0.08, marketing: 0.04, capexReserve: 0.02, occupancy: 0.85, firstYearOccupancy: 0.70, badDebt: 0.05, fitoutOfAnnualRent: 0.70, note: 'دوران مستأجرين عالٍ، فالإدارة أثقل نسبةً من قيمة الإيجار.' },
+  driver_room: { label: 'غرفة سائق', maintenance: 0.04, management: 0.08, marketing: 0.04, capexReserve: 0.02, occupancy: 0.80, firstYearOccupancy: 0.65, badDebt: 0.05, fitoutOfAnnualRent: 0.50, note: 'إيجار صغير، فأي تكلفة ثابتة تلتهم نسبة كبيرة منه.' },
+  showroom: { label: 'معرض تجاري', maintenance: 0.04, management: 0.05, marketing: 0.04, capexReserve: 0.03, occupancy: 0.82, firstYearOccupancy: 0.60, badDebt: 0.05, fitoutOfAnnualRent: 0.35, note: 'تجاري: خاضع لضريبة القيمة المضافة، ويعتمد كلياً على الموقع.' },
+  workshop: { label: 'ورشة', maintenance: 0.05, management: 0.04, marketing: 0.03, capexReserve: 0.03, occupancy: 0.85, firstYearOccupancy: 0.65, badDebt: 0.05, fitoutOfAnnualRent: 0.25, note: 'تجاري: يحتاج ترخيص نشاط، والتلف التشغيلي أعلى من المعتاد.' },
+  parking: { label: 'مواقف سيارات', maintenance: 0.03, management: 0.06, marketing: 0.03, capexReserve: 0.02, occupancy: 0.75, firstYearOccupancy: 0.55, badDebt: 0.04, fitoutOfAnnualRent: 0.10, note: 'تجهيز شبه معدوم، لكن الإيراد يعتمد على كثافة المنطقة لا على العقار.' },
   floor: { label: 'دور', maintenance: 0.05, management: 0.04, marketing: 0.02, capexReserve: 0.02, occupancy: 0.90, firstYearOccupancy: 0.80, badDebt: 0.02, fitoutOfAnnualRent: 0.55, note: 'طلب أضيق من الشقة، وفترة التسويق أطول.' },
   villa: { label: 'فلة', maintenance: 0.06, management: 0.04, marketing: 0.03, capexReserve: 0.03, occupancy: 0.88, firstYearOccupancy: 0.75, badDebt: 0.02, fitoutOfAnnualRent: 0.50, note: 'إيجار مرتفع لكن الفراغ مكلف، والصيانة أكبر.' },
   building: { label: 'عمارة', maintenance: 0.07, management: 0.07, marketing: 0.02, capexReserve: 0.04, occupancy: 0.88, firstYearOccupancy: 0.70, badDebt: 0.03, fitoutOfAnnualRent: 0.35, note: 'تنويع داخلي يقلّل أثر الفراغ، لكن الإدارة والصيانة أثقل.' },
@@ -31,7 +38,12 @@ export const PROPERTY_PROFILES: Record<PropertyType, PropertyProfile> = {
   land: { label: 'أرض', maintenance: 0.01, management: 0.03, marketing: 0.03, capexReserve: 0.01, occupancy: 0.85, firstYearOccupancy: 0.50, badDebt: 0.03, fitoutOfAnnualRent: 0.90, note: 'القيمة كلها في النشاط المقام عليها — التجهيز هو الاستثمار الحقيقي.' },
 };
 
-export const COMMERCIAL_TYPES: PropertyType[] = ['shop', 'office', 'warehouse', 'land'];
+export const COMMERCIAL_TYPES: PropertyType[] = [
+  'shop', 'showroom', 'office', 'warehouse', 'workshop', 'parking', 'land',
+];
+
+/** لا مشغّل ولا تجزئة — الحالة الافتراضية: مستثمر واحد يُدير بنفسه. */
+export const SOLO_SYNDICATION = { shares: 1, operatorShare: 0, capitalFirst: true } as const;
 
 export function defaultRevenue(type: PropertyType, marketRentAnnual: number): RevenueAssumptions {
   const p = PROPERTY_PROFILES[type];

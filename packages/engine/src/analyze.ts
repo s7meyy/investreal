@@ -8,6 +8,7 @@ import { computeCeilings } from './solver.js';
 import { buildRecommendations } from './advisor.js';
 import { computeVerdict } from './verdict.js';
 import { validate } from './validate.js';
+import { computeSyndication, reinvestmentFor } from './syndication.js';
 
 export const ENGINE_VERSION = '0.1.0';
 
@@ -31,5 +32,7 @@ export function analyze(o: Opportunity): AnalysisResult {
     recommendations: buildRecommendations(o, metrics, ceilings, risk, sensitivity),
     verdict: computeVerdict(o, metrics, risk),
     warnings: validate(o),
+    syndication: computeSyndication(o, periods, metrics),
+    reinvestment: reinvestmentFor(o, metrics),
   };
 }

@@ -50,6 +50,22 @@ export function computeVerdict(o: Opportunity, metrics: Metrics, risk: RiskResul
   }
 
   const excessPts = (excess * 100).toFixed(1);
+
+  // الرفض الآتي من المصفوفة (مخاطرة حرجة) يجب أن يُفسَّر بالمخاطرة،
+  // لا أن يُترك مع نصٍّ يتحدّث عن العائد فيبدو الحكم متناقضاً مع سببه.
+  if (grade === 'rejected') {
+    const worst = risk.items.slice(0, 3).map((i) => i.title).join('، ');
+    return {
+      grade,
+      label: LABELS.rejected,
+      reason:
+        `درجة مخاطرتك ${risk.score}/١٠٠ (حرجة)، وهذا يُسقط الفرصة مهما كان عائدها — ` +
+        `عائد ${((metrics.irr ?? 0) * 100).toFixed(1)}٪ لا يشتري لك حمايةً من رأس مال قد يضيع كله. ` +
+        `أثقل ما عليك: ${worst}. عالِجها في العقد ثم أعد التقييم.`,
+      overrides,
+    };
+  }
+
   const reason =
     excess < 0
       ? `عائدك الداخلي ${((metrics.irr ?? 0) * 100).toFixed(1)}٪ أقل من تكلفة الفرصة البديلة ${(o.finance.discountRate * 100).toFixed(0)}٪ — أي أنك تُجمّد مالك سنوات لتحصل على أقل مما يعطيك البديل بلا مخاطرة.`
