@@ -56,7 +56,11 @@ export function Results({ result, hurdle, opportunity }: {
       <Card title="النتيجة بالأرقام">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <Metric label="صافي الربح الكلي" value={riyal(m.totalNet)} tone={m.totalNet > 0 ? 'good' : 'bad'} />
-          <Metric label="رأس المال المستثمر" value={riyal(m.capitalInvested)} />
+          <Metric
+            label="رأس المال المستثمر"
+            value={riyal(m.capitalInvested)}
+            note="أعمق انكشاف نقدي لك"
+          />
           <Metric
             label={`صافي القيمة الحالية @${pct(hurdle, 0)}`}
             value={riyal(m.npv)}
@@ -80,21 +84,47 @@ export function Results({ result, hurdle, opportunity }: {
           <Metric
             label="مكرر الأرباح"
             value={m.earningsMultiple === null ? '—' : `${m.earningsMultiple.toFixed(1)}×`}
-            note="كم سنة من التوزيعات تساوي ما دفعته"
+            note={m.earningsMultiple === null ? 'لا ينطبق على صفقة خاسرة' : 'كم سنة من التدفق تساوي ما دفعته'}
           />
           <Metric label="التكلفة الشهرية" value={riyal(m.monthlyContractCost)} note="ما تدفعه للمالك شهرياً" />
-          <Metric label="التوزيع السنوي المتوقع" value={riyal(m.avgAnnualDistribution)} />
-          <Metric
-            label="العائد النقدي السنوي"
-            value={pct(m.cashOnCash)}
-            note="التوزيع السنوي ÷ رأس المال"
-          />
+        </div>
+
+        {/* التمييز الذي يقع فيه أكثر المستثمرين: التدفق ليس ربحاً */}
+        <div className="mt-4 rounded-xl border border-black/[0.07] bg-paper/70 p-4">
+          <h3 className="text-[13px] font-semibold">ما يدخل جيبك كل سنة — وكم منه ربح فعلاً</h3>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl bg-white px-4 py-3">
+              <div className="text-[12px] text-ink/55">التدفق النقدي السنوي</div>
+              <div className="num mt-1 text-[20px] font-bold">{riyal(m.avgAnnualDistribution)}</div>
+              <div className="num mt-0.5 text-[12px] text-ink/45">{pct(m.cashOnCash)} من رأس المال</div>
+            </div>
+            <div className="rounded-xl bg-white px-4 py-3">
+              <div className="text-[12px] text-ink/55">منه استرداد لرأس مالك</div>
+              <div className="num mt-1 text-[20px] font-bold text-ink/60">
+                {riyal(m.avgAnnualCapitalReturn)}
+              </div>
+              <div className="mt-0.5 text-[12px] text-ink/45">مالك يعود إليك، ليس ربحاً</div>
+            </div>
+            <div className="rounded-xl bg-white px-4 py-3 ring-1 ring-brand/20">
+              <div className="text-[12px] text-ink/55">صافي ربحك السنوي</div>
+              <div className={`num mt-1 text-[20px] font-bold ${m.avgAnnualProfit > 0 ? 'text-ok' : 'text-danger'}`}>
+                {riyal(m.avgAnnualProfit)}
+              </div>
+              <div className="num mt-0.5 text-[12px] text-ink/45">{pct(m.annualProfitRate)} من رأس المال</div>
+            </div>
+          </div>
+          <p className="mt-3 text-[12px] leading-relaxed text-ink/55">
+            العقد المدفوع مقدّماً أصل يتآكل: ما تقبضه كل سنة هو جزء من مالك يعود
+            إليك زائد ربح. من يقرأ <span className="num">{pct(m.cashOnCash)}</span> على أنها
+            ربح سنوي يظنّ عائده أكثر من ضعف حقيقته.
+          </p>
         </div>
         {!m.irrReliable && m.mirr !== null && (
-          <p className="mt-3 rounded-xl bg-paper p-3 text-[12px] leading-relaxed text-ink/60">
-            تتعدّد إشارات التدفق في هذه الفرصة، فالعائد الداخلي وحده قد يُضلّل.
-            المعدل المعدّل (MIRR) — الذي يفترض إعادة استثمار واقعية — هو{' '}
-            <span className="num font-semibold">{pct(m.mirr)}</span>.
+          <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[12px] leading-relaxed text-amber-900/85">
+            مالك يخرج ويعود أكثر من مرة خلال المدة (أقساط متفرّقة)، وفي هذه الحالة
+            يُبالغ العائد الداخلي لأنه يفترض أنك تُعيد استثمار كل دفعة بنفس العائد فوراً.
+            الرقم الأصدق هنا هو المعدل المعدّل:{' '}
+            <span className="num font-semibold">{pct(m.mirr)}</span> — اعتمده في قرارك.
           </p>
         )}
       </Card>
@@ -129,11 +159,16 @@ export function Results({ result, hurdle, opportunity }: {
             <Metric label="التوزيع السنوي للسهم" value={riyal(syn.annualPerShare)} />
             <Metric label="إجمالي عائد السهم" value={riyal(syn.totalPerShare)} tone={syn.totalPerShare > 0 ? 'good' : 'bad'} />
             <Metric
-              label="العائد النقدي السنوي للسهم"
+              label="التدفق السنوي للسهم"
               value={pct(syn.shareCashYield)}
-              note="ما يدخل جيب صاحب السهم كل سنة"
+              note="يشمل استرداد رأس المال"
             />
-            <Metric label="صافي عائد السهم للفترة" value={pct(syn.shareTotalReturn, 0)} />
+            <Metric
+              label="صافي ربح السهم السنوي"
+              value={pct(syn.shareProfitRate)}
+              note={riyal(syn.shareAnnualProfit)}
+              tone={syn.shareProfitRate > 0 ? 'good' : 'bad'}
+            />
             <Metric
               label="العائد الداخلي للمستثمر"
               value={pct(syn.investorIrr)}
@@ -161,30 +196,47 @@ export function Results({ result, hurdle, opportunity }: {
         hint="أقصى ما تدفعه لتحقّق كل عائد مستهدف. هذا الجدول هو ذخيرتك في التفاوض — لا تدخل بدونه."
       >
         <div className="-mx-1 overflow-x-auto px-1">
-          <table className="w-full text-[14px]">
+          <table className="w-full min-w-[420px] table-fixed text-[14px]">
             <thead>
-              <tr className="border-b border-black/10 text-right text-[12px] text-ink/55">
-                <th className="py-2 font-medium">العائد المستهدف</th>
-                <th className="py-2 font-medium">أقصى إيجار سنوي</th>
-                <th className="py-2 font-medium">إجمالي ما تدفعه</th>
+              <tr className="border-b-2 border-black/10 text-[12px] text-ink/55">
+                <th className="w-[26%] py-2 text-right font-medium">العائد المستهدف</th>
+                <th className="w-[37%] py-2 text-left font-medium">أقصى إيجار سنوي</th>
+                <th className="w-[37%] py-2 text-left font-medium">إجمالي ما تدفعه</th>
               </tr>
             </thead>
             <tbody>
               {result.ceilings.map((c) => {
-                const affordable = c.maxContractRentAnnual >= 0;
+                // صف تكلفة الفرصة هو خط التعادل: تحته تربح، فوقه تخسر مقابل البديل.
+                const isHurdle = Math.abs(c.targetIrr - hurdle) < 0.005;
+                const affordable = c.maxContractRentAnnual >= opportunity.deal.contractRentAnnual;
                 return (
-                  <tr key={c.targetIrr} className="border-b border-black/5 last:border-0">
-                    <td className="py-2.5 num">{pct(c.targetIrr, 0)}</td>
-                    <td className={`py-2.5 num font-semibold ${affordable ? '' : 'text-danger'}`}>
+                  <tr
+                    key={c.targetIrr}
+                    className={`border-b border-black/5 last:border-0 ${isHurdle ? 'bg-brand-light/50' : ''}`}
+                  >
+                    <td className="py-3 text-right">
+                      <span className="num font-semibold">{pct(c.targetIrr, 0)}</span>
+                      {isHurdle && (
+                        <span className="mr-2 rounded px-1.5 py-0.5 text-[10px] font-medium text-brand-dark ring-1 ring-brand/30">
+                          بديلك الآمن
+                        </span>
+                      )}
+                    </td>
+                    <td className={`num py-3 text-left font-bold ${affordable ? 'text-ok' : 'text-danger'}`}>
                       {riyal(c.maxContractRentAnnual)}
                     </td>
-                    <td className="py-2.5 num text-ink/65">{riyal(c.maxUpfrontTotal)}</td>
+                    <td className="num py-3 text-left text-ink/60">{riyal(c.maxUpfrontTotal)}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
+        <p className="mt-3 text-[12px] leading-relaxed text-ink/55">
+          سعرك الحالي <span className="num font-semibold">{riyal(opportunity.deal.contractRentAnnual)}</span> سنوياً.
+          الأخضر يعني أن السعر المطلوب يقع تحت سقفك فتربح ذلك العائد، والأحمر يعني
+          أنك تدفع فوق ما يستحقه ذلك الهدف.
+        </p>
       </Card>
 
       <Card title="خطة التفاوض" hint="مرتّبة بالأثر ÷ الجهد، وكل توصية مُسعَّرة بأثرها الفعلي على عائدك.">
@@ -228,8 +280,13 @@ export function Results({ result, hurdle, opportunity }: {
         <ul className="space-y-2.5">
           {risk.items.slice(0, 10).map((r) => (
             <li key={r.id} className="border-r-2 border-black/10 pr-3">
-              <div className="flex items-baseline gap-2">
+              <div className="flex flex-wrap items-baseline gap-2">
                 <span className="text-[14px] font-medium">{r.title}</span>
+                {r.unverified && (
+                  <span className="rounded px-1.5 py-0.5 text-[10px] font-medium text-amber-800 ring-1 ring-amber-500/30">
+                    غير محسوم
+                  </span>
+                )}
                 <span className="num text-[11px] text-ink/45">شدّة {r.severity}</span>
               </div>
               <p className="mt-0.5 text-[13px] leading-relaxed text-ink/65">{r.note}</p>
@@ -264,7 +321,7 @@ export function Results({ result, hurdle, opportunity }: {
           hint={`لو كرّرتَ فرصة بعائد ${pct(m.irr)} وأعدتَ استثمار كل ريال بدل استهلاكه.`}
         >
           <div className="-mx-1 overflow-x-auto px-1">
-            <table className="w-full text-[13px]">
+            <table className="w-full min-w-[480px] text-[13px] [&_td]:px-2 [&_th]:px-2">
               <thead>
                 <tr className="border-b border-black/10 text-right text-[12px] text-ink/55">
                   <th className="py-2 font-medium">السنة</th>
@@ -295,7 +352,7 @@ export function Results({ result, hurdle, opportunity }: {
 
       <Card title="جدول التدفقات النقدية">
         <div className="-mx-1 overflow-x-auto px-1">
-          <table className="w-full text-[13px]">
+          <table className="w-full min-w-[480px] text-[13px] [&_td]:px-2 [&_th]:px-2">
             <thead>
               <tr className="border-b border-black/10 text-right text-[12px] text-ink/55">
                 <th className="py-2 font-medium">السنة</th>

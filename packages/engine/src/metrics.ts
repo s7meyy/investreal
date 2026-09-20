@@ -111,8 +111,33 @@ export function payback(points: CashPoint[], rate = 0): number | null {
   return null;
 }
 
-function capitalInvested(rows: PeriodRow[]): number {
-  return rows.reduce((s, r) => s + Math.max(0, -r.net), 0);
+/**
+ * رأس المال المستثمر = **ذروة الانكشاف النقدي التراكمي**، أي أعمق نقطة
+ * يصل إليها رصيد المستثمر قبل أن يبدأ الاسترداد.
+ *
+ * ولا يصحّ جمع كل الأشهر السالبة: في الدفع السنوي يكون شهر ذكرى العقد
+ * سالباً لأن القسط أكبر من دخل ذلك الشهر، فيتضخّم «رأس المال» إلى أضعاف
+ * ما خرج من جيب المستثمر فعلاً — وهو توقيت نقدي لا رأس مال.
+ */
+export function peakExposure(rows: PeriodRow[]): number {
+  let cumulative = 0;
+  let deepest = 0;
+  for (const r of rows) {
+    cumulative += r.net;
+    if (cumulative < deepest) deepest = cumulative;
+  }
+  return -deepest;
+}
+
+/**
+ * تغيّرات الإشارة بعد تجاهل التدفق الختامي.
+ *
+ * تكلفة إعادة الحال في آخر شهر تُنتج تغيّر إشارة ثانياً في كل فرصة تقريباً،
+ * فلو اعتمدنا العدّ الخام لظهر تنبيه «تعدّد الجذور» في أبسط الحالات وأربك
+ * المستثمر بعائدين متناقضين. التعدّد الحقيقي هو ما يقع داخل مدة التشغيل.
+ */
+function signChangesBeforeExit(points: CashPoint[]): number {
+  return signChanges(points.slice(0, -1));
 }
 
 /** أقل إشغال يجعل صافي الربح صفراً — بالتنصيف على المحرّك نفسه. */
@@ -154,12 +179,11 @@ function solveBreakevenMarketRent(o: Opportunity): number | null {
 export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics {
   const points = toCashPoints(rows, o.deal.calendar);
   const totalNet = rows.reduce((s, r) => s + r.net, 0);
-  const invested = capitalInvested(rows);
+  const invested = peakExposure(rows);
   const r = o.finance.discountRate;
 
-  const changes = signChanges(points);
   const rawIrr = irr(points);
-  const irrReliable = changes <= 1 && rawIrr !== null;
+  const irrReliable = signChangesBeforeExit(points) <= 1 && rawIrr !== null;
   const value = npv(r, points);
   const horizonYears = Math.max(...points.map((p) => p.years));
 
@@ -168,9 +192,21 @@ export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics
 
   const realIrr = rawIrr === null ? null : (1 + rawIrr) / (1 + o.finance.inflation) - 1;
 
-  // التوزيعات هي الفائض التشغيلي الموجب — رأس المال المسترد ليس ربحاً.
-  const distributions = rows.reduce((s, r) => s + Math.max(0, r.net), 0);
-  const avgAnnualDistribution = o.deal.termYears > 0 ? distributions / o.deal.termYears : 0;
+  /*
+   * تمييز جوهري: التدفق النقدي السنوي ليس ربحاً سنوياً.
+   *
+   * في عقد مدفوع مقدّماً، ما يدخل جيب المستثمر كل سنة هو
+   * «استرداد جزء من رأس ماله + ربح». لو عرضناه كعائد سنوي لظنّه ربحاً
+   * فوق رأس ماله، وهو أكثر من ضعف الحقيقة. لذلك نعرض الرقمين معاً:
+   * التدفق الإجمالي، وصافي الربح بعد حسم استرداد رأس المال.
+   */
+  // إجمالي ما يعود إلى المستثمر = رأس ماله + ربحه. وتعريفه هكذا يجعل
+  // التفكيك متطابقاً تماماً (تدفق = استرداد + ربح)، ولو جمعنا الأشهر
+  // الموجبة وحدها لتجاهلنا التكاليف الختامية وظهر التفكيك غير متّسق.
+  const totalReturned = Math.max(0, totalNet + invested);
+  const avgAnnualDistribution = o.deal.termYears > 0 ? totalReturned / o.deal.termYears : 0;
+  const avgAnnualCapitalReturn = o.deal.termYears > 0 ? invested / o.deal.termYears : 0;
+  const avgAnnualProfit = o.deal.termYears > 0 ? totalNet / o.deal.termYears : 0;
   const totalReturnRate = invested > 0 ? totalNet / invested : 0;
 
   return {
@@ -178,7 +214,9 @@ export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics
     totalNet,
     roi: invested > 0 ? totalNet / invested : 0,
     irr: rawIrr,
-    mirr: mirr(points, r, Math.min(r, 0.06)),
+    // إعادة الاستثمار بتكلفة الفرصة نفسها: أي معدل أدنى يجعل MIRR أقل من
+    // العائد الداخلي دائماً، فيبدو تحذيراً وهو مجرّد أثر لافتراض متحفّظ.
+    mirr: mirr(points, r, r),
     npv: value,
     profitabilityIndex: invested > 0 ? value / invested + 1 : 0,
     cagr: invested > 0 && totalNet + invested > 0 && horizonYears > 0
@@ -193,8 +231,13 @@ export function computeMetrics(o: Opportunity, rows = buildCashflow(o)): Metrics
     realIrr,
     irrReliable,
     monthlyContractCost: contractAnnual / 12,
-    earningsMultiple: avgAnnualDistribution > 0 ? invested / avgAnnualDistribution : null,
+    // لا معنى لمكرر أرباح في صفقة خاسرة: «كم سنة تساوي ما دفعته» سؤال
+    // لا جواب له حين لا تسترد ما دفعت أصلاً.
+    earningsMultiple: totalNet > 0 && avgAnnualDistribution > 0 ? invested / avgAnnualDistribution : null,
     avgAnnualDistribution,
+    avgAnnualCapitalReturn,
+    avgAnnualProfit,
+    annualProfitRate: invested > 0 ? avgAnnualProfit / invested : 0,
     totalReturnRate,
     simpleAnnualReturn: o.deal.termYears > 0 ? totalReturnRate / o.deal.termYears : 0,
     cashOnCash: invested > 0 ? avgAnnualDistribution / invested : 0,

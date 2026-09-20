@@ -31,7 +31,7 @@ const RISKS: RiskDef[] = [
   { id: 'ownershipClear', title: 'سلامة الملكية', category: 'legal', weight: 10, safe: 'yes', blocker: true,
     note: 'ملكية مشاعة أو متنازع عليها قد تُجمّد العقار سنوات.',
     mitigation: 'صك مفرز، وتوقيع كل الملّاك، ومطابقة الهويات.' },
-  { id: 'notWaqf', title: 'العقار ليس وقفاً', category: 'legal', weight: 8, safe: 'yes', blocker: true,
+  { id: 'notWaqf', title: 'خلوّ العقار من الوقف', category: 'legal', weight: 8, safe: 'yes', blocker: true,
     note: 'التصرّف بالوقف لمدد طويلة له أحكام خاصة قد تُبطل العقد.',
     mitigation: 'التحقق من صفة الصك، وموافقة الجهة المختصة إن كان وقفاً.' },
   { id: 'titleUnencumbered', title: 'خلوّ العقار من الرهن', category: 'legal', weight: 9, safe: 'yes',
@@ -115,8 +115,9 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
         title: def.title,
         category: def.category,
         severity: Math.round(def.weight * exp * 10) / 10,
-        note: answer === 'unknown' ? `${def.note} (غير معروف — يُحسب كخطر حتى تتحقّق)` : def.note,
+        note: def.note,
         mitigation: def.mitigation,
+        unverified: answer === 'unknown',
       });
     }
     // «لا» بند قاتل مؤكّد يُسقط الفرصة؛ «لا أعرف» واجبُ تحقّق يمنع الترقية.
@@ -129,7 +130,7 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
   if (metrics.liquidityLockRatio !== null && metrics.liquidityLockRatio > 0.4) {
     numeric += 6;
     items.push({
-      id: 'liquidity', title: 'تركّز السيولة', category: 'financial', severity: 6,
+      id: 'liquidity', title: 'تركّز السيولة', category: 'financial', severity: 6, unverified: false,
       note: `هذه الصفقة تجمّد ${Math.round(metrics.liquidityLockRatio * 100)}٪ من سيولتك في أصل واحد.`,
       mitigation: 'شارك مستثمراً، أو جزّئ الدفعة، أو اختر مدة أقصر.',
     });
@@ -137,7 +138,7 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
   if (o.deal.termYears >= 15) {
     numeric += 5;
     items.push({
-      id: 'longTerm', title: 'طول المدة', category: 'financial', severity: 5,
+      id: 'longTerm', title: 'طول المدة', category: 'financial', severity: 5, unverified: false,
       note: `مدة ${o.deal.termYears} سنة تعني تعرّضاً طويلاً لتغيّر الأنظمة والسوق والحي.`,
       mitigation: 'بند مراجعة كل ٥ سنوات + حق خروج مقابل تعويض محدّد.',
     });
@@ -145,7 +146,7 @@ export function computeRisk(o: Opportunity, metrics: Metrics): RiskResult {
   if (metrics.breakevenOccupancy !== null && metrics.breakevenOccupancy > 0.75) {
     numeric += 6;
     items.push({
-      id: 'thinMargin', title: 'هامش تشغيلي ضيّق', category: 'operational', severity: 6,
+      id: 'thinMargin', title: 'هامش تشغيلي ضيّق', category: 'operational', severity: 6, unverified: false,
       note: `تحتاج إشغالاً ${Math.round(metrics.breakevenOccupancy * 100)}٪ لمجرّد التعادل — لا مساحة للخطأ.`,
       mitigation: 'خفّض الإيجار التعاقدي أو اطلب فترة سماح أطول قبل الدخول.',
     });

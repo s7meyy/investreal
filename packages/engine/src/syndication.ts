@@ -30,9 +30,10 @@ export function computeSyndication(o: Opportunity, rows: PeriodRow[], metrics: M
   const capitalPerShare = metrics.capitalInvested / shares;
   const termYears = o.deal.termYears;
 
-  // التوزيعات = الفائض التشغيلي الموجب فقط (رأس المال ليس توزيعاً).
-  const distributions = investorRows.reduce((s, r) => s + Math.max(0, r.net), 0);
-  const avgAnnual = termYears > 0 ? distributions / termYears : 0;
+  // ما يعود إلى المستثمرين = رأس مالهم + ربحهم، بنفس تعريف المحرّك
+  // حتى يبقى التفكيك «تدفق = استرداد + ربح» متطابقاً في كل الشاشات.
+  const totalReturned = Math.max(0, investorsTotalNet + metrics.capitalInvested);
+  const avgAnnual = termYears > 0 ? totalReturned / termYears : 0;
 
   const totalPerShare = investorsTotalNet / shares;
   const annualPerShare = avgAnnual / shares;
@@ -49,8 +50,12 @@ export function computeSyndication(o: Opportunity, rows: PeriodRow[], metrics: M
     shareTotalReturn: capitalPerShare > 0 ? totalPerShare / capitalPerShare : 0,
     shareAnnualReturn: capitalPerShare > 0 && termYears > 0 ? totalPerShare / capitalPerShare / termYears : 0,
     shareCashYield: capitalPerShare > 0 ? annualPerShare / capitalPerShare : 0,
+    shareAnnualProfit: termYears > 0 ? totalPerShare / termYears : 0,
+    shareProfitRate:
+      capitalPerShare > 0 && termYears > 0 ? totalPerShare / termYears / capitalPerShare : 0,
     investorIrr,
-    investorEarningsMultiple: avgAnnual > 0 ? metrics.capitalInvested / avgAnnual : null,
+    investorEarningsMultiple:
+      investorsTotalNet > 0 && avgAnnual > 0 ? metrics.capitalInvested / avgAnnual : null,
   };
 }
 

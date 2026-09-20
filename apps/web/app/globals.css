@@ -9,12 +9,15 @@ body {
   color: theme('colors.ink');
 }
 
-/* الأرقام العربية-الغربية بفاصل آلاف واضح داخل النص العربي. */
+/* الأرقام العربية-الغربية بفاصل آلاف واضح داخل النص العربي.
+   العزل (isolate) هو ما يمنع علامة السالب من الهجرة إلى آخر السطر،
+   ولا يصحّ استعمال `display:inline-block` لذلك: تطبيقه على خلية جدول
+   يُخرجها من تخطيط الجدول فتنهار محاذاة الأعمدة كلها. */
 .num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum';
   direction: ltr;
-  display: inline-block;
+  unicode-bidi: isolate;
 }
 
 /* حقول الإدخال الرقمية تبقى LTR حتى لا تتشتّت الأرقام في سياق RTL. */

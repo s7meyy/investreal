@@ -230,8 +230,14 @@ export interface Metrics {
    * «كم سنة من التوزيعات تساوي ما دفعته؟» — أوضح مقياس لغير المتخصّص.
    */
   earningsMultiple: number | null;
-  /** متوسط التوزيع السنوي للمستثمرين بعد حصة المشغّل */
+  /** متوسط التدفق النقدي السنوي — يشمل استرداد رأس المال، فليس ربحاً */
   avgAnnualDistribution: number;
+  /** الجزء من التدفق السنوي الذي هو استرداد لرأس المال لا ربح */
+  avgAnnualCapitalReturn: number;
+  /** صافي الربح السنوي بعد حسم استرداد رأس المال */
+  avgAnnualProfit: number;
+  /** صافي الربح السنوي ÷ رأس المال — العائد الحقيقي فوق رأس المال */
+  annualProfitRate: number;
   /** نسبة العائد البسيط للفترة كلها */
   totalReturnRate: number;
   /** نسبة العائد البسيط السنوي (الإجمالي ÷ المدة) */
@@ -258,10 +264,14 @@ export interface SyndicationResult {
   /** نسبة العائد السنوي البسيط للسهم (صافي الربح ÷ رأس المال ÷ المدة) */
   shareAnnualReturn: number;
   /**
-   * العائد النقدي السنوي للسهم = التوزيع السنوي ÷ رأس مال السهم.
-   * هذا ما يسأل عنه المستثمر فعلاً: «كم يدخل جيبي كل سنة؟»
+   * التدفق النقدي السنوي للسهم ÷ رأس ماله.
+   * يشمل استرداد رأس المال، فهو ليس ربحاً — يُعرض دائماً بجوار الربح الصافي.
    */
   shareCashYield: number;
+  /** صافي ربح السهم السنوي (بعد حسم استرداد رأس المال) */
+  shareAnnualProfit: number;
+  /** صافي ربح السهم السنوي ÷ رأس ماله — العائد الحقيقي لصاحب السهم */
+  shareProfitRate: number;
   /** العائد الداخلي للمستثمر بعد حصة المشغّل */
   investorIrr: number | null;
   /** مكرر الأرباح للمستثمرين */
@@ -288,6 +298,8 @@ export interface ScoredRisk {
   severity: number;
   note: string;
   mitigation: string;
+  /** لم يُجب عنه بعد — تعرضه الواجهة كشارة لا كجملة مكرّرة في كل بند */
+  unverified: boolean;
 }
 
 export interface RiskResult {

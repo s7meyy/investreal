@@ -1,9 +1,11 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { analyze, PROPERTY_PROFILES, UNKNOWN_LEGAL, type LegalAnswers, type PropertyType } from '@investreal/engine';
 import { Card, NumberField, PercentField, SelectField, TextField } from '@/components/ui';
 import { LegalForm } from '@/components/LegalForm';
 import { Results } from '@/components/Results';
+import { StickyVerdict } from '@/components/StickyVerdict';
+import { EmptyState } from '@/components/EmptyState';
 import { applyProfile, defaultForm, toOpportunity, type QuickForm } from '@/lib/opportunity';
 
 const TYPE_OPTIONS = (Object.keys(PROPERTY_PROFILES) as PropertyType[]).map((t) => ({
@@ -23,6 +25,10 @@ export default function Page() {
   const opportunity = useMemo(() => toOpportunity(form, legal), [form, legal]);
   const result = useMemo(() => analyze(opportunity), [opportunity]);
   const profile = PROPERTY_PROFILES[form.propertyType];
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  // بلا الرقمين الأساسيين لا معنى لأي مخرَج — نعرض حالة فارغة لا لوحة خسائر.
+  const ready = form.marketRentAnnual > 0 && form.contractRentAnnual > 0;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -187,8 +193,23 @@ export default function Page() {
         </div>
 
         {/* عمود النتائج */}
-        <Results result={result} hurdle={form.discountRate} opportunity={opportunity} />
+        <div ref={resultsRef} className="min-w-0 scroll-mt-4">
+          {ready ? (
+            <Results result={result} hurdle={form.discountRate} opportunity={opportunity} />
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       </div>
+
+      {/* مساحة للشريط الملتصق على الجوال حتى لا يغطّي آخر البطاقات */}
+      {ready && <div className="h-20 lg:hidden" aria-hidden />}
+      {ready && (
+        <StickyVerdict
+          result={result}
+          onOpen={() => resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        />
+      )}
     </main>
   );
 }

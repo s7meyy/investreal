@@ -96,11 +96,23 @@ export function Metric({ label, value, tone = 'neutral', note }: {
   label: string; value: string; tone?: 'good' | 'bad' | 'neutral'; note?: string;
 }) {
   const color = tone === 'good' ? 'text-ok' : tone === 'bad' ? 'text-danger' : 'text-ink';
+  // «ريال» بحجم أصغر ولا يُكسر عن رقمه: القيمة الطويلة كانت تنكسر سطرين
+  // فتُقرأ الوحدة وكأنها سطر مستقل.
+  const [amount, unit] = splitUnit(value);
   return (
     <div className="rounded-xl bg-paper px-4 py-3">
       <div className="text-[12px] text-ink/55">{label}</div>
-      <div className={`num mt-1 text-[22px] font-bold leading-tight ${color}`}>{value}</div>
+      <div className={`mt-1 leading-tight ${color}`}>
+        <span className="num text-[22px] font-bold">{amount}</span>
+        {unit && <span className="mr-1 text-[13px] font-medium opacity-60">{unit}</span>}
+      </div>
       {note && <div className="mt-1 text-[12px] leading-relaxed text-ink/50">{note}</div>}
     </div>
   );
+}
+
+/** يفصل الوحدة («ريال»، «سنة») عن الرقم لعرضها بحجم أصغر. */
+function splitUnit(value: string): [string, string | null] {
+  const m = value.match(/^(.*?)\s(ريال|سنة|شهر)$/);
+  return m ? [m[1]!, m[2]!] : [value, null];
 }
