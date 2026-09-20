@@ -22,7 +22,7 @@ export function NumberField({ label, value, onChange, suffix, step = 1, min = 0,
   suffix?: string; step?: number; min?: number; hint?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1.5 block text-[13px] font-medium text-ink/75">{label}</span>
       <div className="flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/15">
         <input
@@ -60,7 +60,7 @@ export function SelectField<T extends string>({ label, value, onChange, options,
   options: { value: T; label: string }[]; hint?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1.5 block text-[13px] font-medium text-ink/75">{label}</span>
       <select
         className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"
@@ -80,7 +80,7 @@ export function TextField({ label, value, onChange, placeholder }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="mb-1.5 block text-[13px] font-medium text-ink/75">{label}</span>
       <input
         className="w-full rounded-xl border border-black/10 bg-white px-3 py-2.5 text-[15px] outline-none focus:border-brand focus:ring-2 focus:ring-brand/15"

@@ -12,4 +12,5 @@ export * from './validate.js';
 export * from './defaults.js';
 export * from './marketData.js';
 export * from './syndication.js';
+export * from './term.js';
 export * from './analyze.js';

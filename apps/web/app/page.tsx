@@ -1,12 +1,15 @@
 'use client';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { analyze, PROPERTY_PROFILES, UNKNOWN_LEGAL, type LegalAnswers, type PropertyType } from '@investreal/engine';
 import { Card, NumberField, PercentField, SelectField, TextField } from '@/components/ui';
 import { LegalForm } from '@/components/LegalForm';
 import { Results } from '@/components/Results';
 import { StickyVerdict } from '@/components/StickyVerdict';
 import { EmptyState } from '@/components/EmptyState';
-import { applyProfile, defaultForm, toOpportunity, type QuickForm } from '@/lib/opportunity';
+import { UnitsEditor } from '@/components/UnitsEditor';
+import { MarketCompare } from '@/components/MarketCompare';
+import { fromHash, loadLocal, saveLocal, toShareUrl } from '@/lib/persist';
+import { applyProfile, defaultForm, effectiveMarketRent, isMultiUnit, toOpportunity, type QuickForm } from '@/lib/opportunity';
 
 const TYPE_OPTIONS = (Object.keys(PROPERTY_PROFILES) as PropertyType[]).map((t) => ({
   value: t,
@@ -17,6 +20,23 @@ export default function Page() {
   const [form, setForm] = useState<QuickForm>(defaultForm);
   const [legal, setLegal] = useState<LegalAnswers>(UNKNOWN_LEGAL);
   const [advanced, setAdvanced] = useState(false);
+  const [restored, setRestored] = useState(false);
+  const [shareNote, setShareNote] = useState('');
+
+  // استعادة الحالة: الرابط المشارَك أولاً، ثم آخر عمل محفوظ في المتصفح.
+  useEffect(() => {
+    const state = fromHash(window.location.hash) ?? loadLocal();
+    if (state?.form) {
+      setForm({ ...defaultForm(), ...state.form });
+      if (state.legal) setLegal(state.legal);
+    }
+    setRestored(true);
+  }, []);
+
+  // حفظ تلقائي بعد الاستعادة فقط، حتى لا نكتب فوق المحفوظ قبل قراءته.
+  useEffect(() => {
+    if (restored) saveLocal({ form, legal });
+  }, [form, legal, restored]);
 
   const set = <K extends keyof QuickForm>(key: K, v: QuickForm[K]) =>
     setForm((f) => ({ ...f, [key]: v }));
@@ -28,7 +48,21 @@ export default function Page() {
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // بلا الرقمين الأساسيين لا معنى لأي مخرَج — نعرض حالة فارغة لا لوحة خسائر.
-  const ready = form.marketRentAnnual > 0 && form.contractRentAnnual > 0;
+  const marketRent = effectiveMarketRent(form);
+  const ready = marketRent > 0 && form.contractRentAnnual > 0;
+  const multiUnit = isMultiUnit(form.propertyType);
+
+  const share = async () => {
+    const url = toShareUrl({ form, legal }, window.location.origin);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('نُسخ الرابط');
+    } catch {
+      window.location.hash = url.split('#')[1] ?? '';
+      setShareNote('الرابط في شريط العنوان');
+    }
+    setTimeout(() => setShareNote(''), 2500);
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">
@@ -45,7 +79,7 @@ export default function Page() {
         {/* عمود الإدخال */}
         <div className="no-print min-w-0 space-y-4 lg:sticky lg:top-6">
           <Card title="الفرصة" hint={profile.note}>
-            <div className="grid gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <SelectField
                 label="نوع العقار"
                 value={form.propertyType}
@@ -56,14 +90,37 @@ export default function Page() {
                 <TextField label="المدينة" value={form.city} onChange={(v) => set('city', v)} />
                 <TextField label="الحي" value={form.district} onChange={(v) => set('district', v)} placeholder="اختياري" />
               </div>
-              <NumberField
-                label="إيجار السوق السنوي"
-                value={form.marketRentAnnual}
-                onChange={(v) => setForm((f) => applyProfile(f, f.propertyType, v))}
-                suffix="ريال"
-                step={1000}
-                hint="ما تتوقّع تحصيله فعلاً — لا ما يقوله المالك. هذا أخطر رقم في الحساب كله."
-              />
+              {multiUnit ? (
+                <div>
+                  <span className="mb-1.5 block text-[13px] font-medium text-ink/75">وحدات العقار</span>
+                  <UnitsEditor
+                    units={form.units}
+                    onChange={(u) => {
+                      // الافتراضات المشتقّة (التجهيز، إعادة الحال) تُبنى على
+                      // إجمالي إيجار العقار، فتتغيّر بتغيّر الوحدات.
+                      const total = u.reduce((sum, x) => sum + x.marketRentAnnual * x.count, 0);
+                      setForm((f) => ({ ...applyProfile(f, f.propertyType, total || f.marketRentAnnual), units: u }));
+                    }}
+                  />
+                </div>
+              ) : (
+                <div>
+                  <NumberField
+                    label="إيجار السوق السنوي"
+                    value={form.marketRentAnnual}
+                    onChange={(v) => setForm((f) => applyProfile(f, f.propertyType, v))}
+                    suffix="ريال"
+                    step={1000}
+                    hint="ما تتوقّع تحصيله فعلاً — لا ما يقوله المالك. هذا أخطر رقم في الحساب كله."
+                  />
+                  <MarketCompare
+                    propertyType={form.propertyType}
+                    city={form.city}
+                    district={form.district}
+                    onApply={(v) => setForm((f) => applyProfile(f, f.propertyType, v))}
+                  />
+                </div>
+              )}
               <NumberField
                 label="الإيجار التعاقدي السنوي"
                 value={form.contractRentAnnual}
@@ -137,7 +194,7 @@ export default function Page() {
             title="تجزئة الفرصة"
             hint="لو دخلتَ الفرصة مع شركاء، أو أدارها مشغّل مقابل حصة."
           >
-            <div className="grid gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <NumberField
                 label="عدد الأسهم"
                 value={form.shares}
@@ -158,7 +215,7 @@ export default function Page() {
             title="بيانات التقرير"
             hint="تظهر على غلاف الملف المُصدَّر، ولا تدخل في أي حساب."
           >
-            <div className="grid gap-3">
+            <div className="grid grid-cols-1 gap-3">
               <TextField
                 label="عنوان الصفحة الأولى"
                 value={form.reportTitle}
@@ -178,8 +235,16 @@ export default function Page() {
               >
                 تحميل التقرير PDF
               </button>
+              <button
+                type="button"
+                onClick={share}
+                className="w-full rounded-xl border border-black/10 py-2.5 text-[14px] font-medium text-ink/70 transition hover:bg-paper"
+              >
+                {shareNote || 'نسخ رابط هذه الدراسة'}
+              </button>
               <p className="text-[12px] leading-relaxed text-ink/45">
-                يفتح نافذة الطباعة — اختر «حفظ بصيغة PDF» وجهةً للحفظ.
+                زر PDF يفتح نافذة الطباعة — اختر «حفظ بصيغة PDF» وجهةً للحفظ.
+                والرابط يحمل كل مدخلاتك، فيفتحه شريكك على نفس الأرقام.
               </p>
             </div>
           </Card>

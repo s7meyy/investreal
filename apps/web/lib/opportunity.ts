@@ -29,6 +29,8 @@ export interface QuickForm {
   // بيانات التقرير — لا تدخل في أي حساب
   reportTitle: string;
   preparedBy: string;
+  /** وحدات العمارة/المجمّع: عدد وإيجار سنوي للوحدة */
+  units: { label: string; count: number; marketRentAnnual: number }[];
 }
 
 export function defaultForm(): QuickForm {
@@ -57,6 +59,7 @@ export function defaultForm(): QuickForm {
     operatorShare: 0,
     reportTitle: 'دراسة جدوى فرصة استثمارية عقارية',
     preparedBy: '',
+    units: [],
   };
 }
 
@@ -77,10 +80,25 @@ export function applyProfile(form: QuickForm, type: PropertyType, marketRent: nu
   };
 }
 
+/** أنواع يُؤجَّر فيها أكثر من وحدة، فلا معنى لإيجار واحد للمبنى كله. */
+export const MULTI_UNIT_TYPES: PropertyType[] = ['building'];
+
+export function isMultiUnit(type: PropertyType): boolean {
+  return MULTI_UNIT_TYPES.includes(type);
+}
+
+/** إجمالي إيجار السوق: مجموع الوحدات إن وُجدت، وإلا الرقم المفرد. */
+export function effectiveMarketRent(form: QuickForm): number {
+  if (!isMultiUnit(form.propertyType) || form.units.length === 0) return form.marketRentAnnual;
+  return form.units.reduce((s, u) => s + u.marketRentAnnual * u.count, 0);
+}
+
 export function toOpportunity(form: QuickForm, legal: LegalAnswers = UNKNOWN_LEGAL): Opportunity {
-  const costs = defaultCosts(form.propertyType, form.marketRentAnnual);
-  const revenue = defaultRevenue(form.propertyType, form.marketRentAnnual);
+  const marketRent = effectiveMarketRent(form);
+  const costs = defaultCosts(form.propertyType, marketRent);
+  const revenue = defaultRevenue(form.propertyType, marketRent);
   const finance = defaultFinance(form.propertyType);
+  const multiUnit = isMultiUnit(form.propertyType) && form.units.length > 0;
 
   const totalUpfront = form.contractRentAnnual * form.termYears;
   const payment =
@@ -108,6 +126,7 @@ export function toOpportunity(form: QuickForm, legal: LegalAnswers = UNKNOWN_LEG
     },
     revenue: {
       ...revenue,
+      units: multiUnit ? form.units : revenue.units,
       occupancy: form.occupancy,
       firstYearOccupancy: form.firstYearOccupancy,
       growthRate: form.growthRate,

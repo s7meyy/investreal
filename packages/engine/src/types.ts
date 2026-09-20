@@ -363,4 +363,13 @@ export interface AnalysisResult {
   warnings: string[];
   syndication: SyndicationResult;
   reinvestment: ReinvestmentRow[];
+  termSensitivity: TermPoint[];
+}
+
+export interface TermPoint {
+  years: number;
+  irr: number | null;
+  capitalInvested: number;
+  totalNet: number;
+  isCurrent: boolean;
 }

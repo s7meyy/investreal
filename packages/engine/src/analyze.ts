@@ -9,6 +9,7 @@ import { buildRecommendations } from './advisor.js';
 import { computeVerdict } from './verdict.js';
 import { validate } from './validate.js';
 import { computeSyndication, reinvestmentFor } from './syndication.js';
+import { termSensitivity } from './term.js';
 
 export const ENGINE_VERSION = '0.1.0';
 
@@ -34,5 +35,6 @@ export function analyze(o: Opportunity): AnalysisResult {
     warnings: validate(o),
     syndication: computeSyndication(o, periods, metrics),
     reinvestment: reinvestmentFor(o, metrics),
+    termSensitivity: termSensitivity(o),
   };
 }

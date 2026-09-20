@@ -3,6 +3,7 @@ import type { AnalysisResult, Grade, Opportunity } from '@investreal/engine';
 import { ReportCover } from './ReportCover';
 import { Card, Metric } from './ui';
 import { CashflowChart } from './CashflowChart';
+import { TermCard } from './TermCard';
 import { pct, riyal, years } from '@/lib/format';
 
 const GRADE_STYLE: Record<Grade, { bg: string; text: string; ring: string }> = {
@@ -190,6 +191,11 @@ export function Results({ result, hurdle, opportunity }: {
           )}
         </Card>
       )}
+
+      <TermCard
+        points={result.termSensitivity}
+        hurts={(result.termSensitivity.at(-1)?.irr ?? 0) < (result.termSensitivity[0]?.irr ?? 0)}
+      />
 
       <Card
         title="السقف التفاوضي"
