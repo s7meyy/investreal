@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // التطبيق كله يعمل على العميل: لا خوادم ولا واجهات برمجية، والمحرّك
+  // يُحسب في المتصفح. التصدير الثابت أبسط وأسرع، ويعني أن بيانات
+  // المستثمر لا تغادر جهازه أصلاً.
+  output: 'export',
   // المحرّك حزمة TypeScript مصدرية تُترجم مع التطبيق.
   transpilePackages: ['@investreal/engine'],
   webpack(config) {
