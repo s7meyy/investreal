@@ -5,8 +5,13 @@ import {
 } from '@investreal/engine';
 
 /** حالة شاشة تقييم الأرض كاملةً — تُحفظ وتُشارَك كوحدة واحدة. */
+import type { ParcelDims } from '@/components/ParcelSketch';
+
 export interface LandForm {
   subject: LandSubject;
+  dims: ParcelDims;
+  /** إحداثيات أو رابط خرائط — يُرمَّز في كيو آر التقرير */
+  location: string;
   observations: PriceObservation[];
   lens: ReaderLens;
   adjustments: AdjustmentConfig;
@@ -32,6 +37,8 @@ export const defaultLandForm = (): LandForm => ({
     servicesReady: true,
     zoningLabel: 'سكني',
   },
+  dims: { north: 0, south: 0, east: 0, west: 0, streetSides: ['north'] },
+  location: '',
   observations: [],
   lens: 'developer',
   adjustments: { ...DEFAULT_ADJUSTMENTS },
@@ -76,6 +83,7 @@ export function loadLand(): LandForm | null {
       ...base,
       ...parsed,
       subject: { ...base.subject, ...parsed.subject },
+      dims: { ...base.dims, ...parsed.dims },
       adjustments: { ...base.adjustments, ...parsed.adjustments },
       residual: { ...base.residual, ...parsed.residual },
       holding: { ...base.holding, ...parsed.holding },

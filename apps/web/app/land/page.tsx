@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { LENS_LABEL, analyzeLand, type LandSubject, type ReaderLens } from '@investreal/engine';
 import { Card, NumberField, PercentField, SelectField, TextField } from '@/components/ui';
 import { ObservationsEditor } from '@/components/ObservationsEditor';
+import { LandVisuals, useStoredImages } from '@/components/LandVisuals';
+import { ParcelSketch } from '@/components/ParcelSketch';
 import { LandResults } from '@/components/LandResults';
 import { defaultLandForm, loadLand, saveLand, usableCount, type LandForm } from '@/lib/land';
+import { mapsUrl } from '@/lib/geo';
 
 const LENSES: ReaderLens[] = ['developer', 'investor', 'buyer'];
 
@@ -19,6 +22,8 @@ export default function LandPage() {
   const [form, setForm] = useState<LandForm>(defaultLandForm);
   const [restored, setRestored] = useState(false);
   const [advanced, setAdvanced] = useState(false);
+  const { images, setImage } = useStoredImages();
+  const [qr, setQr] = useState<string | null>(null);
 
   useEffect(() => {
     const saved = loadLand();
@@ -32,6 +37,18 @@ export default function LandPage() {
 
   const setSubject = <K extends keyof LandSubject>(k: K, v: LandSubject[K]) =>
     setForm((f) => ({ ...f, subject: { ...f.subject, [k]: v } }));
+
+  // الكيو آر يُولَّد هنا أيضاً ليظهر في غلاف الطباعة لا في شاشة الإدخال وحدها
+  useEffect(() => {
+    let alive = true;
+    const url = mapsUrl(form.location);
+    if (!url) { setQr(null); return; }
+    import('qrcode')
+      .then((m) => m.default.toDataURL(url, { margin: 1, width: 320 }))
+      .then((d) => { if (alive) setQr(d); })
+      .catch(() => { if (alive) setQr(null); });
+    return () => { alive = false; };
+  }, [form.location]);
 
   const analysis = useMemo(
     () => analyzeLand({
@@ -85,6 +102,13 @@ export default function LandPage() {
           {form.preparedBy.reportNo ? ` · رقم التقرير ${form.preparedBy.reportNo}` : ''}
         </p>
         <p className="text-[13px] text-ink/70">تاريخ الإصدار: {today} · صالح ٦٠ يوماً من تاريخه</p>
+        {qr && (
+          <div className="mt-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={qr} alt="كيو آر لموقع الأرض" className="h-28 w-28" />
+            <p className="text-[12px] text-ink/60">امسح الرمز للذهاب إلى موقع الأرض</p>
+          </div>
+        )}
         <p className="mt-3 text-[12px] leading-relaxed text-ink/60">
           هذا تحليل سوقي استرشادي مبني على ملاحظات أدخلها مُعِدّه وافتراضات مذكورة داخله،
           وليس تقييماً معتمداً صادراً عن مُقيّم مرخّص، ولا يصلح وحده أساساً لتمويل أو نزاع.
@@ -213,6 +237,47 @@ export default function LandPage() {
               />
             </Card>
           </div>
+
+          <div className="print:hidden">
+            <LandVisuals
+              dims={form.dims}
+              onDims={(d) => setForm((f) => ({ ...f, dims: d }))}
+              areaSqm={form.subject.areaSqm}
+              location={form.location}
+              onLocation={(v) => setForm((f) => ({ ...f, location: v }))}
+              images={images}
+              onImage={setImage}
+              districtLabel={form.subject.district}
+            />
+          </div>
+
+          {/* الأدلّة المرئية في التقرير المطبوع */}
+          {ready && (images.satellite || images.site || form.dims.north > 0) && (
+            <section className="hidden print:block">
+              <h2 className="mb-3 text-base font-semibold">الأرض على الطبيعة</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {images.satellite && (
+                  <figure>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={images.satellite} alt="صورة القمر الصناعي" className="w-full rounded-lg border border-black/10" />
+                    <figcaption className="mt-1 text-[12px] text-ink/60">صورة القمر الصناعي</figcaption>
+                  </figure>
+                )}
+                {images.site && (
+                  <figure>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={images.site} alt="صورة الموقع" className="w-full rounded-lg border border-black/10" />
+                    <figcaption className="mt-1 text-[12px] text-ink/60">صورة من الزيارة الميدانية</figcaption>
+                  </figure>
+                )}
+              </div>
+              {form.dims.north > 0 && (
+                <div className="mt-4">
+                  <ParcelSketch dims={form.dims} areaSqm={form.subject.areaSqm} label={form.subject.district} />
+                </div>
+              )}
+            </section>
+          )}
 
           {ready ? (
             <LandResults a={analysis} lens={form.lens} />
