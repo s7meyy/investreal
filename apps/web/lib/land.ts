@@ -1,7 +1,8 @@
 import {
   DEFAULT_ADJUSTMENTS, DEFAULT_HOLDING, DEFAULT_RESIDUAL, DEFAULT_TRANSACTION_COSTS,
-  type AdjustmentConfig, type HoldingInputs, type LandSubject, type PriceObservation,
-  type ReaderLens, type ResidualInputs, type TransactionCostConfig,
+  type AdjustmentConfig, type HoldingInputs, type LandSubject, type LiquidityInputs,
+  type PriceObservation, type PricePoint, type ReaderLens, type ResidualInputs,
+  type TransactionCostConfig, type UseScenario,
 } from '@investreal/engine';
 
 /** حالة شاشة تقييم الأرض كاملةً — تُحفظ وتُشارَك كوحدة واحدة. */
@@ -20,6 +21,10 @@ export interface LandForm {
   costs: TransactionCostConfig;
   preparedBy: { name: string; title: string; phone: string; reportNo: string };
   title: string;
+  trend: PricePoint[];
+  liquidity: LiquidityInputs;
+  offers: { discountRate: number; deferMonths: number; downPaymentPct: number; cashDiscountPct: number };
+  scenarios: UseScenario[];
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -47,6 +52,10 @@ export const defaultLandForm = (): LandForm => ({
   costs: { ...DEFAULT_TRANSACTION_COSTS },
   preparedBy: { name: '', title: '', phone: '', reportNo: '' },
   title: '',
+  trend: [],
+  liquidity: { dealsLastSixMonths: 0, avgDaysOnMarket: 0, activeListings: 0 },
+  offers: { discountRate: 0.08, deferMonths: 12, downPaymentPct: 0.3, cashDiscountPct: 0.05 },
+  scenarios: [],
 });
 
 let seq = 0;
@@ -89,7 +98,11 @@ export function loadLand(): LandForm | null {
       holding: { ...base.holding, ...parsed.holding },
       costs: { ...base.costs, ...parsed.costs },
       preparedBy: { ...base.preparedBy, ...parsed.preparedBy },
+      liquidity: { ...base.liquidity, ...parsed.liquidity },
+      offers: { ...base.offers, ...parsed.offers },
       observations: parsed.observations ?? [],
+      trend: parsed.trend ?? [],
+      scenarios: parsed.scenarios ?? [],
     };
   } catch {
     return null;
@@ -99,3 +112,50 @@ export function loadLand(): LandForm | null {
 /** المقارنات المقبولة فعلاً في الحساب — ما دونها لا يصلح لإصدار رقم. */
 export const usableCount = (form: LandForm): number =>
   form.observations.filter((o) => o.pricePerSqm > 0 && o.track !== 'official').length;
+
+/** ترميز آمن للعربية في الرابط (btoa وحده يختنق بغير اللاتينية). */
+function encode(value: string): string {
+  const bytes = new TextEncoder().encode(value);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function decode(value: string): string {
+  const binary = atob(value.replace(/-/g, '+').replace(/_/g, '/'));
+  return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
+}
+
+/**
+ * رابط المشاركة يحمل المدخلات لا الصور: الصور تبقى على جهاز مُعِدّ التقرير،
+ * ورابط يحمل لقطة قمر صناعي كاملة لا يصلح للإرسال أصلاً.
+ */
+export function toLandShareUrl(form: LandForm, origin: string): string {
+  return `${origin}/land/#f=${encode(JSON.stringify(form))}`;
+}
+
+export function fromLandHash(hash: string): LandForm | null {
+  const match = hash.match(/[#&]f=([^&]+)/);
+  if (!match?.[1]) return null;
+  try {
+    const parsed = JSON.parse(decode(match[1])) as Partial<LandForm>;
+    const base = defaultLandForm();
+    return {
+      ...base, ...parsed,
+      subject: { ...base.subject, ...parsed.subject },
+      dims: { ...base.dims, ...parsed.dims },
+      adjustments: { ...base.adjustments, ...parsed.adjustments },
+      residual: { ...base.residual, ...parsed.residual },
+      holding: { ...base.holding, ...parsed.holding },
+      costs: { ...base.costs, ...parsed.costs },
+      preparedBy: { ...base.preparedBy, ...parsed.preparedBy },
+      liquidity: { ...base.liquidity, ...parsed.liquidity },
+      offers: { ...base.offers, ...parsed.offers },
+      observations: parsed.observations ?? [],
+      trend: parsed.trend ?? [],
+      scenarios: parsed.scenarios ?? [],
+    };
+  } catch {
+    return null;
+  }
+}

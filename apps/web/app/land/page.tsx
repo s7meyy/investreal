@@ -5,9 +5,11 @@ import { LENS_LABEL, analyzeLand, type LandSubject, type ReaderLens } from '@inv
 import { Card, NumberField, PercentField, SelectField, TextField } from '@/components/ui';
 import { ObservationsEditor } from '@/components/ObservationsEditor';
 import { LandVisuals, useStoredImages } from '@/components/LandVisuals';
+import { TrendAndLiquidity } from '@/components/TrendAndLiquidity';
+import { NegotiationSheet } from '@/components/NegotiationSheet';
 import { ParcelSketch } from '@/components/ParcelSketch';
 import { LandResults } from '@/components/LandResults';
-import { defaultLandForm, loadLand, saveLand, usableCount, type LandForm } from '@/lib/land';
+import { defaultLandForm, fromLandHash, loadLand, saveLand, toLandShareUrl, usableCount, type LandForm } from '@/lib/land';
 import { mapsUrl } from '@/lib/geo';
 
 const LENSES: ReaderLens[] = ['developer', 'investor', 'buyer'];
@@ -24,9 +26,11 @@ export default function LandPage() {
   const [advanced, setAdvanced] = useState(false);
   const { images, setImage } = useStoredImages();
   const [qr, setQr] = useState<string | null>(null);
+  const [shareNote, setShareNote] = useState('');
 
   useEffect(() => {
-    const saved = loadLand();
+    const shared = fromLandHash(window.location.hash);
+    const saved = shared ?? loadLand();
     if (saved) setForm(saved);
     setRestored(true);
   }, []);
@@ -64,6 +68,18 @@ export default function LandPage() {
   );
 
   const ready = usableCount(form) > 0 && form.subject.areaSqm > 0;
+
+  const share = async () => {
+    const url = toLandShareUrl(form, window.location.origin);
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('نُسخ الرابط');
+    } catch {
+      window.location.hash = url.split('#')[1] ?? '';
+      setShareNote('الرابط في شريط العنوان');
+    }
+    setTimeout(() => setShareNote(''), 2500);
+  };
   const today = new Date().toLocaleDateString('ar-SA-u-ca-gregory');
 
   return (
@@ -79,6 +95,10 @@ export default function LandPage() {
           <Link href="/" className="rounded-xl border border-black/10 px-3 py-2 text-[13px] hover:bg-paper">
             دراسة جدوى إيجار
           </Link>
+          <button onClick={share} disabled={!ready}
+            className="rounded-xl border border-black/10 px-3 py-2 text-[13px] hover:bg-paper disabled:opacity-40">
+            {shareNote || 'نسخ رابط المشاركة'}
+          </button>
           <button onClick={() => window.print()} disabled={!ready}
             className="rounded-xl bg-brand px-4 py-2 text-[13px] font-medium text-white disabled:opacity-40">
             طباعة التقرير
@@ -289,6 +309,28 @@ export default function LandPage() {
                 الأداة لا تخترع قيمة من صفات الأرض وحدها.
               </p>
             </div>
+          )}
+
+          {ready && (
+            <>
+              <TrendAndLiquidity
+                points={form.trend}
+                onPoints={(t) => setForm((f) => ({ ...f, trend: t }))}
+                liquidity={form.liquidity}
+                onLiquidity={(l) => setForm((f) => ({ ...f, liquidity: l }))}
+              />
+              <NegotiationSheet
+                subject={form.subject}
+                ceilingPerSqm={analysis.recommendation.ceilingPerSqm}
+                targetPerSqm={analysis.recommendation.targetPerSqm}
+                settings={form.offers}
+                onSettings={(o) => setForm((f) => ({ ...f, offers: o }))}
+                residual={form.residual}
+                scenarios={form.scenarios}
+                onScenarios={(sc) => setForm((f) => ({ ...f, scenarios: sc }))}
+                marketPerSqm={analysis.valuation.perSqm.likely}
+              />
+            </>
           )}
 
           <p className="rounded-2xl bg-paper px-4 py-3 text-[12px] leading-relaxed text-ink/55">

@@ -67,6 +67,18 @@ input[type='number'] { direction: ltr; text-align: right; }
   /* لا تمرير أفقي في الورق */
   .overflow-x-auto { overflow: visible !important; }
 
+  /* الأزرار بلا معنى على الورق، وحقول الإدخال تُطبع كنصّ لا كصناديق فارغة:
+     أرقام الاتجاه وورقة التفاوض تُقرأ قيمةً لا واجهةً */
+  button { display: none !important; }
+  input, select {
+    border: none !important;
+    background: transparent !important;
+    padding: 0 !important;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  input[type="checkbox"] { appearance: auto; -webkit-appearance: auto; }
+
   /* التفاصيل المطويّة تُفتح على الورق: قارئ التقرير لا يستطيع النقر،
      وجدول المقارنات بتسوياته هو أقوى ما فيه إقناعاً */
   details > *:not(summary) { display: block !important; }

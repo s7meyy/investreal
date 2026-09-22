@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ADJUSTMENTS, DEFAULT_RESIDUAL, DEFAULT_TRANSACTION_COSTS,
-  analyzeLand, buildAdjustments, holdingReturn, maxLandPriceForMargin, normalize,
+  analyzeLand, analyzeLiquidity, analyzeTrend, bestUse, buildAdjustments, equivalentOffers,
+  holdingReturn, maxLandPriceForMargin, normalize,
   profitAtLandPrice, reconcile, residualLandValue, transactionCosts, weightedPercentile,
   type LandSubject, type PriceObservation,
 } from '../src/index.js';
@@ -265,5 +266,100 @@ describe('التحليل الكامل', () => {
       residual: { ...DEFAULT_RESIDUAL, constructionCostPerSqm: 2700, sellPricePerSqm: 5500 },
     });
     expect(a.recommendation.reasons.some((r) => r.includes('السوق يطلب أكثر'))).toBe(true);
+  });
+});
+
+describe('الاتجاه والسيولة', () => {
+  it('يحسب النمو المركّب عبر السلسلة', () => {
+    const t = analyzeTrend([
+      { year: 2023, pricePerSqm: 4000 },
+      { year: 2026, pricePerSqm: 4630 },
+    ]);
+    expect(t.cagr!).toBeCloseTo(0.05, 2);
+    expect(t.direction).toBe('rising');
+    expect(t.project(2)!).toBeCloseTo(4630 * 1.05 ** 2, 0);
+  });
+
+  it('لا يرسم اتجاهاً من نقطة واحدة', () => {
+    const t = analyzeTrend([{ year: 2026, pricePerSqm: 4000 }]);
+    expect(t.cagr).toBeNull();
+    expect(t.direction).toBe('unknown');
+    expect(t.project(3)).toBeNull();
+  });
+
+  it('لا يُخفي انعكاس السنة الأخيرة خلف الاتجاه العام', () => {
+    const t = analyzeTrend([
+      { year: 2022, pricePerSqm: 3000 },
+      { year: 2023, pricePerSqm: 3800 },
+      { year: 2024, pricePerSqm: 4600 },
+      { year: 2025, pricePerSqm: 4300 },
+    ]);
+    expect(t.direction).toBe('rising');
+    expect(t.lastYearChange!).toBeLessThan(0);
+    expect(t.note).toContain('آخر سنة هابطة');
+  });
+
+  it('يكشف الاتجاه الهابط', () => {
+    const t = analyzeTrend([
+      { year: 2024, pricePerSqm: 5000 },
+      { year: 2026, pricePerSqm: 4200 },
+    ]);
+    expect(t.direction).toBe('falling');
+  });
+
+  it('يعدّ السوق راكداً بلا صفقات', () => {
+    const l = analyzeLiquidity({ dealsLastSixMonths: 0, avgDaysOnMarket: 200, activeListings: 40 });
+    expect(l.grade).toBe('frozen');
+    expect(l.monthsOfSupply).toBeNull();
+  });
+
+  it('يحسب شهور التصريف من المعروض ومعدّل البيع', () => {
+    const l = analyzeLiquidity({ dealsLastSixMonths: 12, avgDaysOnMarket: 60, activeListings: 10 });
+    expect(l.monthsOfSupply).toBeCloseTo(5, 6);
+    expect(l.grade).toBe('liquid');
+  });
+});
+
+describe('ورقة التفاوض', () => {
+  const input = { basePricePerSqm: 4500, areaSqm: 750, discountRate: 0.08, deferMonths: 12, downPaymentPct: 0.3, cashDiscountPct: 0.05 };
+
+  it('يجعل القيمة الحالية للعروض واحدة ورقمها المعلن مختلفاً', () => {
+    const { offers, presentValue } = equivalentOffers(input);
+    expect(offers).toHaveLength(2);
+    for (const o of offers) expect(o.presentValue).toBeCloseTo(presentValue, 6);
+    expect(offers[1]!.headlinePrice).toBeGreaterThan(offers[0]!.headlinePrice);
+  });
+
+  it('يتحقّق يدوياً من تكافؤ العرض المؤجّل', () => {
+    const { offers } = equivalentOffers(input);
+    const deferred = offers.find((o) => o.key === 'deferred')!;
+    const pv = deferred.headlinePrice * 0.3 + (deferred.headlinePrice * 0.7) / 1.08;
+    expect(pv).toBeCloseTo(deferred.presentValue, 4);
+  });
+
+  it('يضيف الشراكة حين يحتمل المشروع الثمن، بحصة من ربحه', () => {
+    const { offers } = equivalentOffers({ ...input, basePricePerSqm: 1500 }, subject, DEFAULT_RESIDUAL);
+    const p = offers.find((o) => o.key === 'partnership');
+    expect(p).toBeDefined();
+    expect(p!.terms[0]).toMatch(/حصة \d+٪/);
+  });
+
+  it('لا يعرض شراكة حين يبتلع ثمن الأرض ربح المشروع كلّه', () => {
+    // حصة تتجاوز ١٠٠٪ ليست عرضاً بل مشروعاً خاسراً
+    const { offers } = equivalentOffers(input, subject, DEFAULT_RESIDUAL);
+    expect(offers.find((o) => o.key === 'partnership')).toBeUndefined();
+  });
+
+  it('لا يُصدر عروضاً بلا سعر أساس', () => {
+    expect(equivalentOffers({ ...input, basePricePerSqm: 0 }).offers).toHaveLength(0);
+  });
+
+  it('يرتّب سيناريوهات الاستخدام بالقيمة التي تُعطيها للأرض', () => {
+    const ranked = bestUse(subject, [
+      { label: 'سكني عادي', far: 1.5, sellPricePerSqm: 6500, constructionCostPerSqm: 2200 },
+      { label: 'سكني استثماري', far: 2.4, sellPricePerSqm: 6200, constructionCostPerSqm: 2400 },
+    ], DEFAULT_RESIDUAL);
+    expect(ranked[0]!.landValuePerSqm).toBeGreaterThanOrEqual(ranked[1]!.landValuePerSqm);
+    expect(ranked[0]!.label).toBe('سكني استثماري');
   });
 });
