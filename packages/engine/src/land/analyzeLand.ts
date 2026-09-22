@@ -90,9 +90,18 @@ export function analyzeLand(input: LandCase): LandAnalysis {
     reasons.push('درجة الثقة منخفضة: عامل هذه الأرقام كنطاق استرشادي، وزد المقارنات الموثّقة قبل الالتزام.');
   }
 
-  const headline = valuation.perSqm.likely <= 0
-    ? 'لا تكفي المقارنات لإصدار قيمة'
-    : `القيمة المرجّحة ${Math.round(valuation.perSqm.likely).toLocaleString('en-US')} ريال للمتر، والسقف ${Math.round(ceiling).toLocaleString('en-US')}`;
+  const money = (v: number) => Math.round(v).toLocaleString('en-US');
+  let headline: string;
+  if (valuation.perSqm.likely <= 0) {
+    headline = 'لا تكفي المقارنات لإصدار قيمة';
+  } else if (input.lens === 'developer' && !residual.feasible) {
+    headline = `السوق عند ${money(valuation.perSqm.likely)} ريال للمتر، ومشروعك بهذه الافتراضات لا يحتمل أي ثمن للأرض`;
+  } else if (input.lens === 'developer' && ceiling < valuation.perSqm.low) {
+    // إظهار الرقمين معاً أصدق من إظهار سقف منخفض بلا تفسير
+    headline = `السوق عند ${money(valuation.perSqm.likely)} ريال للمتر، ومشروعك لا يحتمل فوق ${money(ceiling)}`;
+  } else {
+    headline = `القيمة المرجّحة ${money(valuation.perSqm.likely)} ريال للمتر، والسقف ${money(ceiling)}`;
+  }
 
   return {
     valuation,

@@ -67,6 +67,11 @@ input[type='number'] { direction: ltr; text-align: right; }
   /* لا تمرير أفقي في الورق */
   .overflow-x-auto { overflow: visible !important; }
 
+  /* التفاصيل المطويّة تُفتح على الورق: قارئ التقرير لا يستطيع النقر،
+     وجدول المقارنات بتسوياته هو أقوى ما فيه إقناعاً */
+  details > *:not(summary) { display: block !important; }
+  details summary { list-style: none; }
+
   /* الرسوم البيانية تحتفظ بألوانها */
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

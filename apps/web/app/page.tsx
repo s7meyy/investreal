@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { analyze, PROPERTY_PROFILES, UNKNOWN_LEGAL, type LegalAnswers, type PropertyType } from '@investreal/engine';
 import { Card, NumberField, PercentField, SelectField, TextField } from '@/components/ui';
 import { LegalForm } from '@/components/LegalForm';
@@ -73,6 +74,10 @@ export default function Page() {
           تحسب لك هذه الأداة العائد الحقيقي بعد كل التكاليف، وتُخرج لك{' '}
           <strong className="font-semibold text-ink">السقف الذي لا تدفع فوقه</strong> قبل أن تفاوض.
         </p>
+        <Link href="/land"
+          className="mt-3 inline-flex items-center gap-2 rounded-xl border border-black/10 px-3 py-2 text-[13px] font-medium hover:bg-paper">
+          تبحث عن تقييم أرض؟ انتقل إلى تقرير سعر الأرض ←
+        </Link>
       </header>
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,380px)_minmax(0,1fr)] lg:items-start">

@@ -45,7 +45,7 @@ export interface ResidualInputs {
 export const DEFAULT_RESIDUAL: ResidualInputs = {
   efficiency: 0.78,
   constructionCostPerSqm: 2200,
-  sellPricePerSqm: 5500,
+  sellPricePerSqm: 6500,
   softCostsPct: 0.12,
   marketingPct: 0.03,
   developerProfitPct: 0.20,

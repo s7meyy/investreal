@@ -251,10 +251,18 @@ describe('التحليل الكامل', () => {
     expect(a.recommendation.reasons.some((r) => r.includes('التعادل'))).toBe(true);
   });
 
+  it('يُصرّح في العنوان بالفرق بين ما يطلبه السوق وما يحتمله المشروع', () => {
+    const a = analyzeLand({
+      subject, observations: sample, lens: 'developer',
+      residual: { ...DEFAULT_RESIDUAL, constructionCostPerSqm: 2700, sellPricePerSqm: 5500 },
+    });
+    expect(a.recommendation.headline).toContain('لا يحتمل فوق');
+  });
+
   it('يُنبّه حين يطلب السوق أكثر مما يحتمله المشروع', () => {
     const a = analyzeLand({
       subject, observations: sample, lens: 'developer',
-      residual: { ...DEFAULT_RESIDUAL, constructionCostPerSqm: 2700 },
+      residual: { ...DEFAULT_RESIDUAL, constructionCostPerSqm: 2700, sellPricePerSqm: 5500 },
     });
     expect(a.recommendation.reasons.some((r) => r.includes('السوق يطلب أكثر'))).toBe(true);
   });
