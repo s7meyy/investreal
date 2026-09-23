@@ -1,9 +1,10 @@
 import {
-  DEFAULT_ADJUSTMENTS, DEFAULT_HOLDING, DEFAULT_RESIDUAL, DEFAULT_TRANSACTION_COSTS,
+  DEFAULT_ADJUSTMENTS, DEFAULT_HOLDING, DEFAULT_RESIDUAL, DEFAULT_TRANSACTION_COSTS, UNKNOWN_LAND_LEGAL,
   type AdjustmentConfig, type HoldingInputs, type LandSubject, type LiquidityInputs,
   type PriceObservation, type PricePoint, type ReaderLens, type ResidualInputs,
-  type TransactionCostConfig, type UseScenario,
+  type ComparisonEntry, type LandLegalAnswers, type TransactionCostConfig, type UseScenario,
 } from '@investreal/engine';
+import { defaultSections, type ReportSections } from '@/components/ReportSections';
 
 /** حالة شاشة تقييم الأرض كاملةً — تُحفظ وتُشارَك كوحدة واحدة. */
 import type { ParcelDims } from '@/components/ParcelSketch';
@@ -25,6 +26,8 @@ export interface LandForm {
   liquidity: LiquidityInputs;
   offers: { discountRate: number; deferMonths: number; downPaymentPct: number; cashDiscountPct: number };
   scenarios: UseScenario[];
+  legal: LandLegalAnswers;
+  report: ReportSections;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -56,6 +59,8 @@ export const defaultLandForm = (): LandForm => ({
   liquidity: { dealsLastSixMonths: 0, avgDaysOnMarket: 0, activeListings: 0 },
   offers: { discountRate: 0.08, deferMonths: 12, downPaymentPct: 0.3, cashDiscountPct: 0.05 },
   scenarios: [],
+  legal: { ...UNKNOWN_LAND_LEGAL },
+  report: defaultSections(),
 });
 
 let seq = 0;
@@ -100,12 +105,39 @@ export function loadLand(): LandForm | null {
       preparedBy: { ...base.preparedBy, ...parsed.preparedBy },
       liquidity: { ...base.liquidity, ...parsed.liquidity },
       offers: { ...base.offers, ...parsed.offers },
+      legal: { ...base.legal, ...parsed.legal },
+      report: { ...base.report, ...parsed.report },
       observations: parsed.observations ?? [],
       trend: parsed.trend ?? [],
       scenarios: parsed.scenarios ?? [],
     };
   } catch {
     return null;
+  }
+}
+
+/**
+ * الفرص المحفوظة للمقارنة.
+ *
+ * تُخزَّن كنتائج مُلخّصة لا كحالات كاملة: المقارنة تحتاج ستة أرقام لكل
+ * فرصة، وحفظ الحالات كاملةً يملأ التخزين بما لا يُقرأ.
+ */
+const CASES_KEY = 'investreal:land:cases:v1';
+
+export function loadCases(): ComparisonEntry[] {
+  try {
+    const raw = localStorage.getItem(CASES_KEY);
+    return raw ? (JSON.parse(raw) as ComparisonEntry[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveCases(entries: ComparisonEntry[]): void {
+  try {
+    localStorage.setItem(CASES_KEY, JSON.stringify(entries));
+  } catch {
+    // تخزين ممتلئ أو معطّل — المقارنة تعمل داخل الجلسة بلا حفظ.
   }
 }
 
@@ -151,6 +183,8 @@ export function fromLandHash(hash: string): LandForm | null {
       preparedBy: { ...base.preparedBy, ...parsed.preparedBy },
       liquidity: { ...base.liquidity, ...parsed.liquidity },
       offers: { ...base.offers, ...parsed.offers },
+      legal: { ...base.legal, ...parsed.legal },
+      report: { ...base.report, ...parsed.report },
       observations: parsed.observations ?? [],
       trend: parsed.trend ?? [],
       scenarios: parsed.scenarios ?? [],
@@ -159,3 +193,4 @@ export function fromLandHash(hash: string): LandForm | null {
     return null;
   }
 }
+

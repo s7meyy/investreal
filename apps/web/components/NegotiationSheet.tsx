@@ -4,6 +4,7 @@ import {
   type LandSubject, type ResidualInputs, type UseScenario,
 } from '@investreal/engine';
 import { Card, NumberField, PercentField } from '@/components/ui';
+import { printableClass } from '@/components/ReportSections';
 import { riyal } from '@/lib/format';
 
 /**
@@ -23,7 +24,8 @@ export interface OfferSettings {
 }
 
 export function NegotiationSheet({
-  subject, ceilingPerSqm, targetPerSqm, settings, onSettings, residual, scenarios, onScenarios, marketPerSqm,
+  subject, ceilingPerSqm, targetPerSqm, settings, onSettings, residual, scenarios, onScenarios,
+  marketPerSqm, showNegotiation = true, showScenarios = true,
 }: {
   subject: LandSubject;
   ceilingPerSqm: number;
@@ -34,6 +36,9 @@ export function NegotiationSheet({
   scenarios: UseScenario[];
   onScenarios: (s: UseScenario[]) => void;
   marketPerSqm: number;
+  /** كل بطاقة تُطفأ عن الورق وحدها: ورقة التفاوض قد لا تُرسَل مع التقرير */
+  showNegotiation?: boolean;
+  showScenarios?: boolean;
 }) {
   const base = targetPerSqm > 0 ? targetPerSqm : ceilingPerSqm;
   const { offers } = equivalentOffers(
@@ -48,6 +53,7 @@ export function NegotiationSheet({
 
   return (
     <>
+      <div className={printableClass(showNegotiation)}>
       <Card title="ورقة التفاوض" hint="ثلاثة عروض قيمتها الحالية عندك واحدة — ودع البائع يختار ما يناسب حاجته.">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <PercentField label="ثمن المال عندك" value={settings.discountRate}
@@ -89,7 +95,9 @@ export function NegotiationSheet({
           {' '}(إجمالاً {riyal(walkAway.total)}).
         </p>
       </Card>
+      </div>
 
+      <div className={printableClass(showScenarios)}>
       <Card title="الاستخدام الأمثل" hint="الأرض تساوي بقدر أفضل ما يُبنى عليها نظاماً، لا بقدر ما يُبنى عليها عادةً.">
         <div className="space-y-2">
           {scenarios.map((s, i) => (
@@ -151,6 +159,7 @@ export function NegotiationSheet({
           </div>
         )}
       </Card>
+      </div>
     </>
   );
 }

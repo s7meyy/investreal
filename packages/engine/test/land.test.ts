@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ADJUSTMENTS, DEFAULT_RESIDUAL, DEFAULT_TRANSACTION_COSTS,
-  analyzeLand, analyzeLiquidity, analyzeTrend, bestUse, buildAdjustments, equivalentOffers,
-  holdingReturn, maxLandPriceForMargin, normalize,
+  UNKNOWN_LAND_LEGAL, analyzeLand, analyzeLiquidity, analyzeTrend, bestUse, buildAdjustments,
+  compareOpportunities, equivalentOffers, holdingReturn, landSensitivity, maxLandPriceForMargin,
+  normalize, scoreLandLegal, sensitivityHeadline,
   profitAtLandPrice, reconcile, residualLandValue, transactionCosts, weightedPercentile,
   type LandSubject, type PriceObservation,
 } from '../src/index.js';
@@ -361,5 +362,111 @@ describe('ورقة التفاوض', () => {
     ], DEFAULT_RESIDUAL);
     expect(ranked[0]!.landValuePerSqm).toBeGreaterThanOrEqual(ranked[1]!.landValuePerSqm);
     expect(ranked[0]!.label).toBe('سكني استثماري');
+  });
+});
+
+describe('السجلّ النظامي', () => {
+  it('يبدأ بلا تحقّق فيكون الخطر جزئياً لا كاملاً', () => {
+    const r = scoreLandLegal(UNKNOWN_LAND_LEGAL);
+    expect(r.score).toBe(60);
+    expect(r.band).toBe('serious');
+    expect(r.blockers).toHaveLength(0);
+    expect(r.headline).toContain('لم يُتحقَّق');
+  });
+
+  it('يميّز «لا» عن «لا أعرف» في البند القاتل', () => {
+    const answered = { ...UNKNOWN_LAND_LEGAL, notMortgaged: 'no' as const };
+    const r = scoreLandLegal(answered);
+    expect(r.band).toBe('blocking');
+    expect(r.blockers.map((b) => b.id)).toEqual(['notMortgaged']);
+    expect(scoreLandLegal(UNKNOWN_LAND_LEGAL).band).not.toBe('blocking');
+  });
+
+  it('يُصفّي الخطر حين تُتحقَّق البنود كلها', () => {
+    const allYes = Object.fromEntries(
+      Object.keys(UNKNOWN_LAND_LEGAL).map((k) => [k, 'yes']),
+    ) as typeof UNKNOWN_LAND_LEGAL;
+    const r = scoreLandLegal(allYes);
+    expect(r.score).toBe(0);
+    expect(r.band).toBe('clear');
+    expect(r.unverified).toHaveLength(0);
+  });
+
+  it('لا يُسقط الصفقة ببند غير قاتل أُجيب بـلا', () => {
+    const r = scoreLandLegal({ ...UNKNOWN_LAND_LEGAL, noUnpaidDues: 'no' });
+    expect(r.blockers).toHaveLength(0);
+    expect(r.band).not.toBe('blocking');
+  });
+
+  it('يُقدّم المانع النظامي على السعر في التحليل الكامل', () => {
+    const a = analyzeLand({
+      subject,
+      observations: [obs({ id: 'z', track: 'field', kind: 'deal_registered', pricePerSqm: 4500 })],
+      lens: 'buyer',
+      legal: { ...UNKNOWN_LAND_LEGAL, accessRoad: 'no' },
+    });
+    expect(a.recommendation.headline).toContain('مانع نظامي');
+    expect(a.recommendation.reasons[0]).toContain('الطريق النافذ');
+  });
+});
+
+describe('حساسية قيمة الأرض', () => {
+  const s = landSensitivity(subject, DEFAULT_RESIDUAL);
+
+  it('يرتّب المتغيّرات بقوة أثرها', () => {
+    for (let i = 1; i < s.items.length; i++) {
+      expect(s.items[i - 1]!.swing).toBeGreaterThanOrEqual(s.items[i]!.swing);
+    }
+  });
+
+  it('يجعل سعر البيع أقوى من التكاليف غير المباشرة', () => {
+    const keys = s.items.map((i) => i.key);
+    expect(keys.indexOf('sellPrice')).toBeLessThan(keys.indexOf('softCosts'));
+  });
+
+  it('يقيس الأثر على القيمة المتبقّية لا على الربح', () => {
+    expect(s.base).toBeCloseTo(residualLandValue(subject, DEFAULT_RESIDUAL).landValuePerSqm, 6);
+    const sell = s.items.find((i) => i.key === 'sellPrice')!;
+    expect(sell.highValue).toBeGreaterThan(sell.lowValue);
+  });
+
+  it('يُخرج جملة تدلّ على موضع التحقّق', () => {
+    expect(sensitivityHeadline(s)).toContain('العامل الأخطر');
+  });
+});
+
+describe('مقارنة الفرص', () => {
+  const entry = (over: Partial<Parameters<typeof compareOpportunities>[0][number]>) => ({
+    id: 'x', label: 'فرصة', subject: { city: 'الرياض', district: 'النرجس', areaSqm: 750, far: 1.5 },
+    marketPerSqm: 4000, residualPerSqm: 4400, landCostPerSaleableSqm: 3800,
+    confidenceScore: 70, legalScore: 10, hasBlocker: false, ...over,
+  });
+
+  it('يرتّب بالفائض عن السوق', () => {
+    const rows = compareOpportunities([
+      entry({ id: 'a', label: 'أ', residualPerSqm: 4200 }),
+      entry({ id: 'b', label: 'ب', residualPerSqm: 5000 }),
+    ]);
+    expect(rows[0]!.id).toBe('b');
+    expect(rows[0]!.headroom).toBeCloseTo(0.25, 6);
+  });
+
+  it('يُنزل صاحب المانع النظامي إلى آخر القائمة مهما كان فائضه', () => {
+    const rows = compareOpportunities([
+      entry({ id: 'blocked', residualPerSqm: 9000, hasBlocker: true }),
+      entry({ id: 'clean', residualPerSqm: 4100 }),
+    ]);
+    expect(rows[0]!.id).toBe('clean');
+    expect(rows[1]!.verdict).toContain('مانع نظامي');
+  });
+
+  it('يصف الفائض الضيّق بما هو', () => {
+    const rows = compareOpportunities([entry({ residualPerSqm: 4100 })]);
+    expect(rows[0]!.verdict).toContain('ضيّق');
+  });
+
+  it('يُلحق تحفّظ الثقة المنخفضة بالحكم', () => {
+    const rows = compareOpportunities([entry({ confidenceScore: 30 })]);
+    expect(rows[0]!.verdict).toContain('ثقة التقييم منخفضة');
   });
 });

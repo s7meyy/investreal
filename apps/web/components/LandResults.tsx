@@ -1,6 +1,7 @@
 'use client';
 import { KIND_LABEL, TRACK_LABEL, type LandAnalysis, type PriceTrack, type ReaderLens } from '@investreal/engine';
 import { Card, Metric } from '@/components/ui';
+import { printableClass, type ReportSections } from '@/components/ReportSections';
 import { pct, riyal } from '@/lib/format';
 
 const sar = (v: number) => `${Math.round(v).toLocaleString('en-US')} ريال`;
@@ -8,8 +9,12 @@ const sar = (v: number) => `${Math.round(v).toLocaleString('en-US')} ريال`;
 const CONFIDENCE_LABEL = { high: 'عالية', medium: 'متوسطة', low: 'منخفضة' } as const;
 const CONFIDENCE_TONE = { high: 'bg-ok/10 text-ok', medium: 'bg-amber-100 text-amber-700', low: 'bg-danger/10 text-danger' } as const;
 
-export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) {
+export function LandResults({ a, lens, sections }: {
+  a: LandAnalysis; lens: ReaderLens; sections: ReportSections;
+}) {
   const v = a.valuation;
+  // القسم المُطفأ يبقى على الشاشة ويغيب عن الورق
+  const p = printableClass;
 
   return (
     <div className="space-y-4">
@@ -35,6 +40,7 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
         </ul>
       </Card>
 
+      <div className={p(sections.tracks)}>
       <Card title="المسارات الثلاثة" hint="المسار الرسمي يُعرض للمقارنة ولا يدخل في القيمة السوقية — هو أساس الرسوم لا سعر البيع.">
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
@@ -84,6 +90,9 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
         </div>
       </Card>
 
+      </div>
+
+      <div className={p(sections.comparables)}>
       <Card title="جدول المقارنات" hint="كل مقارنة بتسوياتها ومصدرها وتاريخها — بما فيها المستبعدة وسبب استبعادها.">
         <div className="space-y-2">
           {v.normalized.map((n) => (
@@ -119,7 +128,10 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
         </div>
       </Card>
 
+      </div>
+
       {lens === 'developer' && (
+        <div className={p(sections.lens)}>
         <Card title="القيمة المتبقّية — ما يحتمله المشروع" hint="المقارنات تقول بكم تُباع. هذه تقول بكم تستحق أن تُشترى.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label="المسطحات المسموحة" value={`${Math.round(a.residual.grossFloorAreaSqm).toLocaleString('en-US')} م²`} />
@@ -156,9 +168,11 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
             </span>
           </p>
         </Card>
+        </div>
       )}
 
       {lens === 'investor' && (
+        <div className={p(sections.lens)}>
         <Card title="كم يكلّفني الانتظار؟" hint="ارتفاع السعر وحده ليس ربحاً: الرسوم وتكلفة الفرصة تأكل الفرق.">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Metric label="تكلفة الشراء شاملة" value={riyal(a.holding.buyAllIn)} />
@@ -172,8 +186,10 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
             التعادل مع البديل الآمن. ما دون ذلك خسارة حقيقية وإن كان رقم البيع أعلى من رقم الشراء.
           </p>
         </Card>
+        </div>
       )}
 
+      <div className={p(sections.costs)}>
       <Card title="ما يُدفع فوق الثمن" hint="سعر المتر ليس التكلفة. النسب قابلة للتعديل وتُراجَع من مصادرها عند التعاقد.">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
@@ -207,6 +223,9 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
         </div>
       </Card>
 
+      </div>
+
+      <div className={p(sections.confidence)}>
       <Card title="الثقة والتحفّظات" hint="التقرير منخفض الثقة يجب أن يبدو كذلك لا أن يتجمّل.">
         <ul className="space-y-1.5 text-[13px] leading-relaxed text-ink/70">
           {v.confidence.reasons.map((r, i) => <li key={`c${i}`}>• {r}</li>)}
@@ -217,6 +236,7 @@ export function LandResults({ a, lens }: { a: LandAnalysis; lens: ReaderLens }) 
           </ul>
         )}
       </Card>
+      </div>
     </div>
   );
 }

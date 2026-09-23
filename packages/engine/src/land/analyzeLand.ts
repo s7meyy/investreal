@@ -5,6 +5,8 @@ import {
   DEFAULT_HOLDING, DEFAULT_TRANSACTION_COSTS, holdingReturn, transactionCosts,
   type HoldingInputs, type HoldingResult, type TransactionCostConfig, type TransactionCosts,
 } from './costs.js';
+import { scoreLandLegal, UNKNOWN_LAND_LEGAL, type LandLegalAnswers, type LandLegalResult } from './legal.js';
+import { landSensitivity, sensitivityHeadline, type LandTornadoItem } from './sensitivity.js';
 import type { LandSubject, LandValuation, PriceObservation } from './types.js';
 
 /** عدسة القارئ: الأرقام واحدة، وما يُبنى فوقها يختلف. */
@@ -24,6 +26,7 @@ export interface LandCase {
   residual?: ResidualInputs;
   holding?: HoldingInputs;
   costs?: TransactionCostConfig;
+  legal?: LandLegalAnswers;
   /** بيانات التقرير: معِدّه وهويته */
   preparedBy?: { name: string; title?: string; phone?: string; reportNo?: string };
 }
@@ -35,6 +38,8 @@ export interface LandAnalysis {
   developerAtMarket: { profit: number; marginOnRevenue: number; marginOnCost: number };
   holding: HoldingResult;
   costsAtMarket: TransactionCosts;
+  legal: LandLegalResult;
+  sensitivity: { base: number; items: LandTornadoItem[]; headline: string };
   /** السعر الموصى به للتفاوض والسقف الذي لا يُتجاوز */
   recommendation: { headline: string; targetPerSqm: number; ceilingPerSqm: number; reasons: string[] };
 }
@@ -57,9 +62,15 @@ export function analyzeLand(input: LandCase): LandAnalysis {
   const developerAtMarket = profitAtLandPrice(input.subject, market, residualInputs);
   const holding = holdingReturn(market, input.subject.areaSqm, input.holding ?? DEFAULT_HOLDING, costCfg);
   const costsAtMarket = transactionCosts(market * input.subject.areaSqm, costCfg);
+  const legal = scoreLandLegal(input.legal ?? UNKNOWN_LAND_LEGAL);
+  const sens = landSensitivity(input.subject, residualInputs);
+  const sensitivity = { ...sens, headline: sensitivityHeadline(sens) };
 
   const reasons: string[] = [];
   let ceiling: number;
+
+  // المانع النظامي يسبق كل حديث عن السعر: أرض لا تُفرَغ ليست صفقة أرخص
+  if (legal.blockers.length > 0) reasons.push(legal.headline);
 
   if (input.lens === 'developer') {
     // المطوّر لا يدفع فوق ما يُبقي هامشه المستهدف، مهما قال السوق.
@@ -92,7 +103,9 @@ export function analyzeLand(input: LandCase): LandAnalysis {
 
   const money = (v: number) => Math.round(v).toLocaleString('en-US');
   let headline: string;
-  if (valuation.perSqm.likely <= 0) {
+  if (legal.blockers.length > 0) {
+    headline = `مانع نظامي قبل السعر: ${legal.blockers.map((b) => b.title).join('، ')}`;
+  } else if (valuation.perSqm.likely <= 0) {
     headline = 'لا تكفي المقارنات لإصدار قيمة';
   } else if (input.lens === 'developer' && !residual.feasible) {
     headline = `السوق عند ${money(valuation.perSqm.likely)} ريال للمتر، ومشروعك بهذه الافتراضات لا يحتمل أي ثمن للأرض`;
@@ -109,6 +122,8 @@ export function analyzeLand(input: LandCase): LandAnalysis {
     developerAtMarket,
     holding,
     costsAtMarket,
+    legal,
+    sensitivity,
     recommendation: { headline, targetPerSqm: target, ceilingPerSqm: ceiling, reasons },
   };
 }

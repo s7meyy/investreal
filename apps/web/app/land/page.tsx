@@ -7,9 +7,17 @@ import { ObservationsEditor } from '@/components/ObservationsEditor';
 import { LandVisuals, useStoredImages } from '@/components/LandVisuals';
 import { TrendAndLiquidity } from '@/components/TrendAndLiquidity';
 import { NegotiationSheet } from '@/components/NegotiationSheet';
+import { LandLegalForm } from '@/components/LandLegalForm';
+import { LandSensitivity } from '@/components/LandSensitivity';
+import { CaseCompare } from '@/components/CaseCompare';
+import { ReportSectionsPanel, printableClass } from '@/components/ReportSections';
 import { ParcelSketch } from '@/components/ParcelSketch';
 import { LandResults } from '@/components/LandResults';
-import { defaultLandForm, fromLandHash, loadLand, saveLand, toLandShareUrl, usableCount, type LandForm } from '@/lib/land';
+import {
+  defaultLandForm, fromLandHash, loadCases, loadLand, saveCases, saveLand, toLandShareUrl,
+  usableCount, type LandForm,
+} from '@/lib/land';
+import type { ComparisonEntry } from '@investreal/engine';
 import { mapsUrl } from '@/lib/geo';
 
 const LENSES: ReaderLens[] = ['developer', 'investor', 'buyer'];
@@ -27,11 +35,13 @@ export default function LandPage() {
   const { images, setImage } = useStoredImages();
   const [qr, setQr] = useState<string | null>(null);
   const [shareNote, setShareNote] = useState('');
+  const [cases, setCases] = useState<ComparisonEntry[]>([]);
 
   useEffect(() => {
     const shared = fromLandHash(window.location.hash);
     const saved = shared ?? loadLand();
     if (saved) setForm(saved);
+    setCases(loadCases());
     setRestored(true);
   }, []);
 
@@ -63,11 +73,39 @@ export default function LandPage() {
       residual: form.residual,
       holding: form.holding,
       costs: form.costs,
+      legal: form.legal,
     }),
     [form],
   );
 
   const ready = usableCount(form) > 0 && form.subject.areaSqm > 0;
+
+  /** يحفظ لقطة مُلخّصة من الفرصة الحالية للمقارنة لاحقاً. */
+  const saveCase = () => {
+    const entry: ComparisonEntry = {
+      id: `c${Date.now().toString(36)}`,
+      label: form.title || form.subject.district || 'فرصة بلا اسم',
+      subject: {
+        city: form.subject.city, district: form.subject.district,
+        areaSqm: form.subject.areaSqm, far: form.subject.far,
+      },
+      marketPerSqm: analysis.valuation.perSqm.likely,
+      residualPerSqm: analysis.residual.feasible ? analysis.residual.landValuePerSqm : 0,
+      landCostPerSaleableSqm: analysis.residual.landCostPerSaleableSqm,
+      confidenceScore: analysis.valuation.confidence.score,
+      legalScore: analysis.legal.score,
+      hasBlocker: analysis.legal.blockers.length > 0,
+    };
+    const next = [...cases, entry];
+    setCases(next);
+    saveCases(next);
+  };
+
+  const removeCase = (id: string) => {
+    const next = cases.filter((c) => c.id !== id);
+    setCases(next);
+    saveCases(next);
+  };
 
   const share = async () => {
     const url = toLandShareUrl(form, window.location.origin);
@@ -223,6 +261,9 @@ export default function LandPage() {
             </div>
           </Card>
 
+          <ReportSectionsPanel value={form.report}
+            onChange={(r) => setForm((f) => ({ ...f, report: r }))} />
+
           <button onClick={() => setAdvanced((a) => !a)} className="text-[13px] text-brand hover:underline">
             {advanced ? 'إخفاء معاملات التطبيع' : 'تعديل معاملات التطبيع'}
           </button>
@@ -258,6 +299,11 @@ export default function LandPage() {
             </Card>
           </div>
 
+          <div className={printableClass(form.report.legal)}>
+            <LandLegalForm answers={form.legal}
+              onChange={(l) => setForm((f) => ({ ...f, legal: l }))} />
+          </div>
+
           <div className="print:hidden">
             <LandVisuals
               dims={form.dims}
@@ -272,7 +318,7 @@ export default function LandPage() {
           </div>
 
           {/* الأدلّة المرئية في التقرير المطبوع */}
-          {ready && (images.satellite || images.site || form.dims.north > 0) && (
+          {ready && form.report.visuals && (images.satellite || images.site || form.dims.north > 0) && (
             <section className="hidden print:block">
               <h2 className="mb-3 text-base font-semibold">الأرض على الطبيعة</h2>
               <div className="grid grid-cols-2 gap-3">
@@ -300,7 +346,7 @@ export default function LandPage() {
           )}
 
           {ready ? (
-            <LandResults a={analysis} lens={form.lens} />
+            <LandResults a={analysis} lens={form.lens} sections={form.report} />
           ) : (
             <div className="rounded-2xl border border-dashed border-black/10 px-6 py-12 text-center print:hidden">
               <p className="text-[15px] font-medium">أضف أول ملاحظة سعرية</p>
@@ -313,12 +359,19 @@ export default function LandPage() {
 
           {ready && (
             <>
+              <div className={printableClass(form.report.sensitivity)}>
+                <LandSensitivity a={analysis} />
+              </div>
+
+              <div className={printableClass(form.report.trend)}>
               <TrendAndLiquidity
                 points={form.trend}
                 onPoints={(t) => setForm((f) => ({ ...f, trend: t }))}
                 liquidity={form.liquidity}
                 onLiquidity={(l) => setForm((f) => ({ ...f, liquidity: l }))}
               />
+              </div>
+
               <NegotiationSheet
                 subject={form.subject}
                 ceilingPerSqm={analysis.recommendation.ceilingPerSqm}
@@ -329,7 +382,13 @@ export default function LandPage() {
                 scenarios={form.scenarios}
                 onScenarios={(sc) => setForm((f) => ({ ...f, scenarios: sc }))}
                 marketPerSqm={analysis.valuation.perSqm.likely}
+                showNegotiation={form.report.negotiation}
+                showScenarios={form.report.scenarios}
               />
+
+              <div className={printableClass(form.report.compare)}>
+                <CaseCompare entries={cases} onRemove={removeCase} onSave={saveCase} canSave={ready} />
+              </div>
             </>
           )}
 
